@@ -110,10 +110,10 @@
 - [ ] Generate Windows code signing certificate (optional but recommended)
 
 ### Final Testing
-- [ ] Test all analytics events fire correctly in PostHog
+- [ ] Test all analytics events fire correctly in PostHog (note: `booking_error` still TODO)
 - [ ] Verify device IDs are consistent across sessions
 - [x] Test feature flags with various scenarios (app and booking kill switches)
-- [ ] Test auto-update with multiple version jumps (0.2.0 → 0.4.0+)
+- [x] Test auto-update with multiple version jumps (0.2.0 → 0.4.3)
 - [ ] Test app behavior when update server is unreachable
 
 ### Documentation
@@ -143,7 +143,7 @@
 - GitHub token expires: Feb 15, 2026 (90 days) - stored in 1Password
 - Apple Developer ID certificate: Tied to personal account - credentials in 1Password
 - PostHog project: https://app.posthog.com
-- Current version: 0.4.2 (signed, feature flags integrated)
+- Current version: 0.4.3 (signed, feature flags integrated)
 - Repository: https://github.com/mrado1/reservation-helper (currently public)
 - Auto-update check happens 3 seconds after app launch
 - Feature flags are cached and fetched on app launch and before booking
