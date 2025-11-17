@@ -60,19 +60,26 @@
 
 ---
 
-## 🔄 In Progress
+## ✅ Completed (Continued)
 
-### Auto-Update Testing
-- [ ] **BLOCKER**: Repository is private, auto-updates require authentication
-  - Private repos need GitHub token embedded in app (security risk)
-  - OR need custom update server
-  - OR need to make repo public
-- [ ] Make repo temporarily public for testing
-- [ ] Test auto-update from v0.2.0 → v0.3.0
-- [ ] Verify update notification appears
-- [ ] Verify download progress works
-- [ ] Verify app restarts with new version
-- [ ] Document update flow for users
+### Code Signing & Auto-Update Testing
+- [x] Made repository public for auto-update testing
+- [x] Discovered auto-updates require code signing on macOS
+- [x] Created Developer ID Application certificate (Apple Developer account)
+- [x] Installed code signing certificate and intermediate CA
+- [x] Added hardenedRuntime and entitlements to build config
+- [x] Built and published signed v0.4.0
+- [x] Built and published signed v0.4.1
+- [x] **Successfully tested auto-update**: v0.4.0 → v0.4.1
+  - Update detection: ✅ Working
+  - Download: ✅ Working
+  - Installation: ✅ Working
+  - Restart: ✅ Working
+- [x] Fixed app display name in macOS menu bar
+
+**Note**: Code signing certificate is tied to personal Apple Developer account (credentials in 1Password).
+
+## 🔄 In Progress
 
 ### PostHog Feature Flags Setup
 - [ ] Log into PostHog dashboard
@@ -90,16 +97,12 @@
 ## 📋 Remaining Tasks
 
 ### Security & Privacy
-- [ ] **CRITICAL**: PostHog API key is now in public repo (if made public)
-  - Option 1: Rotate key in PostHog after testing
-  - Option 2: Move to environment variable
-  - Option 3: Use encrypted config
-- [ ] Decide on private vs public repo strategy
-- [ ] If keeping private:
-  - Research custom update server options
-  - OR use update.electronjs.org
-  - OR implement GitHub token authentication
-- [ ] Update documentation with chosen approach
+- [ ] **CRITICAL**: PostHog API key is in public repo
+  - Rotate key in PostHog if repo remains public long-term
+  - OR move to environment variable for production
+- [ ] Decide on long-term repo visibility strategy
+  - Public: Easy updates, but API key exposed
+  - Private: Secure, but requires notarization for updates
 
 ### Windows Build
 - [ ] Set up Windows build environment (requires Wine on Mac, or Windows machine)
@@ -123,37 +126,37 @@
 
 ## 🐛 Known Issues
 
-1. **Private Repo Auto-Updates**: Auto-updater cannot access private GitHub releases without authentication
-   - **Impact**: Updates won't work until repo is public or custom server is set up
-   - **Workaround**: Temporarily make repo public for testing
-
-2. **PostHog API Key in Repo**: API key is committed to repo in `config.js`
-   - **Impact**: If repo is made public, key will be exposed
+1. **PostHog API Key Exposure**: API key is committed to repo in `config.js`
+   - **Impact**: Key is visible in public repo
    - **Mitigation**: Key is scoped to project, can be rotated if needed
+   - **Status**: Acceptable for now, consider environment variables for production
 
-3. **No Code Signing**: macOS builds are not code signed
-   - **Impact**: Users will see "unidentified developer" warning
-   - **Mitigation**: Users must right-click → Open first time
+2. **No Notarization**: macOS builds are code signed but not notarized
+   - **Impact**: Users may see Gatekeeper warnings on first launch
+   - **Mitigation**: Users can right-click → Open to bypass
+   - **Future**: Add notarization step for production releases
 
 ---
 
 ## 📝 Notes
 
-- GitHub token expires: Feb 15, 2026 (90 days)
+- GitHub token expires: Feb 15, 2026 (90 days) - stored in 1Password
+- Apple Developer ID certificate: Tied to personal account - credentials in 1Password
 - PostHog project: https://app.posthog.com
-- Current version: 0.3.0
-- Previous version: 0.2.0 (first version with M10 features)
+- Current version: 0.4.1 (fully signed with working auto-updates)
+- Repository: https://github.com/mrado1/reservation-helper (currently public)
 - Auto-update check happens 3 seconds after app launch
 - Feature flags are cached and fetched on app launch and before booking
+- Code signing requires "Always Allow" for multiple components during build
 
 ---
 
 ## 🎯 Next Session Goals
 
-1. Make repo public temporarily
-2. Test auto-update flow end-to-end
-3. Set up PostHog feature flags
-4. Test feature flag kill switches
-5. Decide on long-term private/public repo strategy
-6. Address PostHog API key security
+1. ✅ ~~Make repo public temporarily~~ - DONE
+2. ✅ ~~Test auto-update flow end-to-end~~ - DONE (v0.4.0 → v0.4.1 successful)
+3. Set up PostHog feature flags (`app_enabled`, `booking_enabled`)
+4. Test feature flag kill switches in app
+5. Decide on long-term repo visibility strategy
+6. Consider rotating PostHog API key or moving to env vars
 
