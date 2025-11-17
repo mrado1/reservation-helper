@@ -28,6 +28,7 @@ module.exports = {
   },
   
   // Development mode detection
-  isDev: process.env.NODE_ENV === 'development' || !process.env.NODE_ENV,
+  // Only true if explicitly set to 'development'
+  isDev: process.env.NODE_ENV === 'development',
 };
 
