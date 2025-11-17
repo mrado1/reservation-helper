@@ -82,24 +82,24 @@
 ## 🔄 In Progress
 
 ### PostHog Feature Flags Setup
-- [ ] Log into PostHog dashboard
-- [ ] Create `app_enabled` feature flag (global kill switch)
-  - Set to `true` by default
-  - Test toggling to `false` to disable app
-- [ ] Create `booking_enabled` feature flag (booking kill switch)
-  - Set to `true` by default
-  - Test toggling to `false` to disable booking
-- [ ] Verify flags are fetched correctly in app
-- [ ] Test flag changes propagate to app
+- [x] Created `app_enabled` feature flag (global kill switch) in PostHog
+  - Defaults to `true` (app enabled)
+  - Toggling to `false` shows \"App Unavailable\" dialog and quits on launch
+- [x] Created `booking_enabled` feature flag (booking kill switch)
+  - Defaults to `true` (booking allowed)
+  - Toggling to `false` prevents booking (kill switch)
+- [x] Wired flags using `posthog-node` server-side SDK (`getAllFlags(deviceId)`)
+- [x] Verified flags are fetched correctly in app (see main.log)
+- [x] Verified flag changes propagate to app without rebuild
 
 ---
 
 ## 📋 Remaining Tasks
 
 ### Security & Privacy
-- [ ] **CRITICAL**: PostHog API key is in public repo
-  - Rotate key in PostHog if repo remains public long-term
-  - OR move to environment variable for production
+- [x] Removed hardcoded PostHog API keys from committed code
+- [x] Moved keys into `.env` (POSTHOG_API_KEY, POSTHOG_PERSONAL_API_KEY)
+- [ ] Consider rotating keys since they were previously committed
 - [ ] Decide on long-term repo visibility strategy
   - Public: Easy updates, but API key exposed
   - Private: Secure, but requires notarization for updates
@@ -126,10 +126,10 @@
 
 ## 🐛 Known Issues
 
-1. **PostHog API Key Exposure**: API key is committed to repo in `config.js`
-   - **Impact**: Key is visible in public repo
-   - **Mitigation**: Key is scoped to project, can be rotated if needed
-   - **Status**: Acceptable for now, consider environment variables for production
+1. **PostHog API Key Exposure (historical)**: API key was previously committed in `config.js`
+   - **Impact**: Key existed in Git history while repo was public
+   - **Mitigation**: Keys now loaded from `.env` only; consider rotation
+   - **Status**: Acceptable for internal usage, revisit before broader distribution
 
 2. **No Notarization**: macOS builds are code signed but not notarized
    - **Impact**: Users may see Gatekeeper warnings on first launch
@@ -143,7 +143,7 @@
 - GitHub token expires: Feb 15, 2026 (90 days) - stored in 1Password
 - Apple Developer ID certificate: Tied to personal account - credentials in 1Password
 - PostHog project: https://app.posthog.com
-- Current version: 0.4.1 (fully signed with working auto-updates)
+- Current version: 0.4.2 (signed, feature flags integrated)
 - Repository: https://github.com/mrado1/reservation-helper (currently public)
 - Auto-update check happens 3 seconds after app launch
 - Feature flags are cached and fetched on app launch and before booking
@@ -155,8 +155,8 @@
 
 1. ✅ ~~Make repo public temporarily~~ - DONE
 2. ✅ ~~Test auto-update flow end-to-end~~ - DONE (v0.4.0 → v0.4.1 successful)
-3. Set up PostHog feature flags (`app_enabled`, `booking_enabled`)
-4. Test feature flag kill switches in app
+3. ✅ ~~Set up PostHog feature flags (`app_enabled`, `booking_enabled`)~~
+4. ✅ ~~Test feature flag kill switches in app~~
 5. Decide on long-term repo visibility strategy
-6. Consider rotating PostHog API key or moving to env vars
+6. Consider rotating PostHog API key before external distribution
 
