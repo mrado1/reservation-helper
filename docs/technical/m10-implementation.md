@@ -462,7 +462,6 @@ Document all tracked events:
 2. Create flags:
    - `app_enabled` (boolean) - Global kill switch
    - `booking_enabled` (boolean) - Enable/disable booking
-   - `countdown_enabled` (boolean) - Enable/disable countdown
 3. Set all to `true` by default
 4. Target "All users"
 
@@ -474,8 +473,7 @@ Add feature flag checking:
 // Cache feature flags
 let featureFlags = {
   app_enabled: true,
-  booking_enabled: true,
-  countdown_enabled: true
+  booking_enabled: true
 };
 
 // Fetch feature flags

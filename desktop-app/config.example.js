@@ -27,7 +27,6 @@ module.exports = {
   defaultFlags: {
     app_enabled: true,
     booking_enabled: true,
-    countdown_enabled: true,
   },
   
   // Development mode detection

@@ -27,9 +27,9 @@ module.exports = {
   
   // Feature Flags (fetched from PostHog)
   defaultFlags: {
+    // If PostHog is unreachable or returns no flags, we default to enabled.
     app_enabled: true,
     booking_enabled: true,
-    countdown_enabled: true,
   },
   
   // Development mode detection
