@@ -10,8 +10,8 @@ const { machineIdSync } = require('node-machine-id');
 const config = require('./config');
 
 // Configure auto-updater
-autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.autoDownload = false; // Don't auto-download since we can't auto-install without code signing
+autoUpdater.autoInstallOnAppQuit = false; // Disabled - requires code signing on macOS
 autoUpdater.logger = require('electron-log');
 autoUpdater.logger.transports.file.level = 'info';
 
@@ -1439,6 +1439,22 @@ autoUpdater.on('checking-for-update', () => {
 autoUpdater.on('update-available', (info) => {
   console.log('Update available:', info.version);
   
+  // Show dialog with link to download (since auto-update requires code signing)
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'Update Available',
+    message: `Version ${info.version} is available!`,
+    detail: 'Click "Download" to get the latest version from GitHub.',
+    buttons: ['Download', 'Later'],
+    defaultId: 0,
+    cancelId: 1
+  }).then((result) => {
+    if (result.response === 0) {
+      // Open GitHub releases page
+      shell.openExternal(`https://github.com/mrado1/reservation-helper/releases/latest`);
+    }
+  });
+  
   // Notify renderer process
   if (mainWindow) {
     mainWindow.webContents.send('update:available', {
@@ -1456,46 +1472,9 @@ autoUpdater.on('error', (err) => {
   console.error('Update error:', err);
 });
 
-autoUpdater.on('download-progress', (progressObj) => {
-  console.log(`Download progress: ${progressObj.percent}%`);
-  
-  // Notify renderer process
-  if (mainWindow) {
-    mainWindow.webContents.send('update:progress', {
-      percent: progressObj.percent,
-      transferred: progressObj.transferred,
-      total: progressObj.total
-    });
-  }
-});
-
-autoUpdater.on('update-downloaded', (info) => {
-  console.log('Update downloaded:', info.version);
-  
-  // Show dialog to user
-  dialog.showMessageBox(mainWindow, {
-    type: 'info',
-    title: 'Update Ready',
-    message: 'A new version has been downloaded.',
-    detail: 'The app will restart to install the update.',
-    buttons: ['Restart Now', 'Later'],
-    defaultId: 0,
-    cancelId: 1
-  }).then((result) => {
-    if (result.response === 0) {
-      // User clicked "Restart Now"
-      // Close all windows first
-      BrowserWindow.getAllWindows().forEach(window => {
-        window.close();
-      });
-      // Force quit and install
-      setImmediate(() => {
-        app.removeAllListeners('window-all-closed');
-        autoUpdater.quitAndInstall(false, true);
-      });
-    }
-  });
-});
+// Note: download-progress and update-downloaded handlers removed
+// Auto-update installation requires code signing on macOS
+// Users will manually download from GitHub releases page
 
 app.whenReady().then(async () => {
   // Set app name for menu (overrides package.json name)
