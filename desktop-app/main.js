@@ -1490,6 +1490,9 @@ autoUpdater.on('update-downloaded', (info) => {
 });
 
 app.whenReady().then(async () => {
+  // Set app name for menu (overrides package.json name)
+  app.setName('Reservation Helper');
+  
   // M10: Track app launch
   trackEvent('app_launched');
   
