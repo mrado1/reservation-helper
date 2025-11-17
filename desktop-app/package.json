@@ -26,7 +26,8 @@
       "main.js",
       "preload.js",
       "renderer/**/*",
-      "package.json"
+      "package.json",
+      "config.js"
     ],
     "mac": {
       "category": "public.app-category.utilities",
