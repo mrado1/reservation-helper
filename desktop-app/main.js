@@ -64,12 +64,21 @@ let featureFlags = {
 // Fetch feature flags
 async function fetchFeatureFlags() {
   try {
+    console.log('Fetching feature flags for device:', deviceId);
     const flags = await posthog.getAllFlags(deviceId);
-    featureFlags = { ...featureFlags, ...flags };
-    console.log('Feature flags loaded:', featureFlags);
+    console.log('Raw flags from PostHog:', flags);
+    
+    if (flags && typeof flags === 'object') {
+      featureFlags = { ...featureFlags, ...flags };
+      console.log('Feature flags loaded successfully:', featureFlags);
+    } else {
+      console.warn('Invalid flags response:', flags);
+    }
+    
     return featureFlags;
   } catch (err) {
     console.error('Could not fetch feature flags:', err);
+    console.error('Error details:', err.message, err.stack);
     // Fail-open: if we can't fetch flags, assume enabled
     return featureFlags;
   }
