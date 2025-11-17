@@ -1,6 +1,6 @@
 {
   "name": "reservation-helper",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "Desktop helper for Reserve America",
   "main": "main.js",
@@ -36,6 +36,10 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "CFBundleName": "Reservation Helper",
+        "CFBundleDisplayName": "Reservation Helper"
+      },
       "target": [
         {
           "target": "dmg",
