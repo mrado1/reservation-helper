@@ -1,0 +1,327 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' https://cdn.tailwindcss.com; frame-src https://www.reserveamerica.com;">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservation Helper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter var', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol']
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body, html {
+        overflow: hidden !important;
+        max-width: 100vw;
+        max-height: 100vh;
+      }
+      #raView {
+        overflow: hidden !important;
+      }
+      aside {
+        overflow-x: hidden !important;
+      }
+      aside * {
+        max-width: 100%;
+        word-wrap: break-word;
+      }
+      /* Prevent tooltips from causing horizontal scroll */
+      aside .group:hover > span {
+        position: fixed !important;
+        left: auto !important;
+        right: auto !important;
+      }
+      /* Hide scrollbars but show on hover/scroll */
+      .scrollable-pane {
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
+        transition: scrollbar-color 0.3s ease;
+      }
+      .scrollable-pane:hover,
+      .scrollable-pane:active {
+        scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+      }
+      .scrollable-pane::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      .scrollable-pane::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .scrollable-pane::-webkit-scrollbar-thumb {
+        background-color: transparent;
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
+      }
+      .scrollable-pane:hover::-webkit-scrollbar-thumb,
+      .scrollable-pane:active::-webkit-scrollbar-thumb {
+        background-color: rgba(148, 163, 184, 0.5);
+      }
+      .scrollable-pane::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(148, 163, 184, 0.8);
+      }
+    </style>
+  </head>
+  <body class="h-screen w-screen bg-slate-100 text-slate-900 overflow-hidden">
+    <div class="flex h-full w-full overflow-hidden">
+      <aside class="w-[400px] min-w-[400px] max-w-[400px] bg-white border-r border-slate-200 flex flex-col min-h-0 overflow-x-hidden shrink-0">
+        <div class="flex items-center gap-2 mb-4 flex-none px-6 pt-5">
+          <h1 class="text-lg font-semibold tracking-tight text-slate-900">Reservation Helper</h1>
+        </div>
+
+        <div class="mb-0 flex items-center gap-4 border-b border-slate-200 flex-none px-6">
+          <button id="tabBooking" class="inline-flex items-center border-b-2 border-slate-900 px-3 py-2 text-xs font-medium text-slate-900">
+            Booking
+          </button>
+          <button id="tabLogs" class="inline-flex items-center border-b-2 border-transparent px-3 py-2 text-xs font-medium text-slate-500 hover:border-slate-300">
+            Logs
+          </button>
+        </div>
+
+        <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollable-pane">
+        <div id="bookingPane" class="relative space-y-4 pt-3 px-6 pb-6 max-w-full">
+          <ol class="space-y-4 max-w-full overflow-x-hidden">
+            <!-- Step 1: Sign in / Auth -->
+            <li class="flex gap-3 max-w-full overflow-x-hidden">
+              <div class="flex flex-col items-center pt-1 shrink-0">
+                <div id="step1Circle" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 text-xs font-semibold text-slate-600 bg-white leading-none">1</div>
+                <div class="mt-1 h-full w-px bg-slate-200"></div>
+              </div>
+              <div class="flex-1 min-w-0 overflow-x-hidden">
+                <div class="text-xs uppercase tracking-wide text-slate-500">Step 1</div>
+                <div class="flex items-center gap-1">
+                  <div class="text-sm font-semibold text-slate-900">Sign in</div>
+                  <span class="relative inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 text-[10px] text-slate-500 cursor-default group">
+                    i
+                    <span class="pointer-events-none absolute left-full top-1/2 z-10 ml-2 min-w-[180px] -translate-y-1/2 rounded-md bg-slate-900 px-2 py-1 text-[11px] font-normal text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                      Sign in to Reserve America in the main window so we can read your cookies and validate your session.
+                    </span>
+                  </span>
+                </div>
+                <div id="step1Status" class="mt-2 text-xs text-slate-500">Status: Not signed in.</div>
+                <div id="step1Data" class="mt-1 text-xs text-slate-500"></div>
+
+                <div id="loginBanner" class="hidden mt-3 rounded-md border border-amber-200 bg-amber-50 text-amber-800 p-3 text-xs">
+                  <div class="flex items-start gap-2">
+                    <svg class="h-4 w-4 mt-0.5" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="#7a4b11" stroke-width="2"/>
+                      <path d="M12 8h.01M11 12h2v6h-2z" fill="#7a4b11"/>
+                    </svg>
+                    <div>
+                      <div class="font-medium text-xs">Please log in on the right</div>
+                      <div class="text-[11px] text-slate-700">We’ll auto-detect your session and update status here.</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-3 space-y-1">
+                  <div class="flex items-center gap-2">
+                    <div id="authChecks" class="flex items-center gap-2" aria-live="polite"></div>
+                  </div>
+                  <div id="authStatus" class="mt-1 space-y-1 text-xs text-slate-800"></div>
+                  <div id="cookieUpdates" class="text-[11px] text-slate-500"></div>
+                </div>
+              </div>
+            </li>
+
+            <!-- Step 2: Context -->
+            <li class="flex gap-3 max-w-full overflow-x-hidden">
+              <div class="flex flex-col items-center pt-1 shrink-0">
+                <div id="step2Circle" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 text-xs font-semibold text-slate-600 bg-white leading-none">2</div>
+                <div class="mt-1 h-full w-px bg-slate-200"></div>
+              </div>
+              <div class="flex-1 min-w-0 overflow-x-hidden">
+                <div class="text-xs uppercase tracking-wide text-slate-500">Step 2</div>
+                <div class="flex items-center gap-1">
+                  <div class="text-sm font-semibold text-slate-900">Find site</div>
+                  <span class="relative inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 text-[10px] text-slate-500 cursor-default group">
+                    i
+                    <span class="pointer-events-none absolute left-full top-1/2 z-10 ml-2 min-w-[180px] -translate-y-1/2 rounded-md bg-slate-900 px-2 py-1 text-[11px] font-normal text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                      Open a campsite booking page in Reserve America so we can read the facility and site you want to reserve.
+                    </span>
+                  </span>
+                </div>
+                <div id="step2Status" class="mt-2 text-xs text-slate-500">Status: Waiting for campsite.</div>
+                <div id="step2Data" class="mt-1 text-xs text-slate-500"></div>
+
+                <div class="mt-3 flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-medium text-slate-600">Context</span>
+                    <div id="contextStatus"></div>
+                  </div>
+                  <button id="refreshContext" class="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-200">
+                    <svg class="h-3 w-3 mr-1" viewBox="0 0 24 24" fill="none">
+                      <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Refresh
+                  </button>
+                </div>
+                <div class="mt-2 text-xs space-y-1">
+                  <div><span class="text-slate-500">Facility:</span> <span id="facilityName"></span> <span id="facilityId" class="text-slate-600 text-[11px]"></span></div>
+                  <div><span class="text-slate-500">Site:</span> <span id="siteName"></span> <span id="siteId" class="text-slate-600 text-[11px]"></span></div>
+                </div>
+              </div>
+            </li>
+
+            <!-- Step 3: Reserve site (booking form + polling) -->
+            <li class="flex gap-3 max-w-full overflow-x-hidden">
+              <div class="flex flex-col items-center pt-1 shrink-0">
+                <div id="step3Circle" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 text-xs font-semibold text-slate-600 bg-white leading-none">3</div>
+                <div class="mt-1 h-full w-px bg-transparent"></div>
+              </div>
+              <div class="flex-1 min-w-0 overflow-x-hidden">
+                <div class="text-xs uppercase tracking-wide text-slate-500">Step 3</div>
+                <div class="flex items-center gap-1">
+                  <div class="text-sm font-semibold text-slate-900">Reserve site</div>
+                  <span class="relative inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 text-[10px] text-slate-500 cursor-default group">
+                    i
+                    <span class="pointer-events-none absolute left-full top-1/2 z-10 ml-2 min-w-[200px] -translate-y-1/2 rounded-md bg-slate-900 px-2 py-1 text-[11px] font-normal text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                      Select your arrival date and nights, then queue or add this site to your cart. Keep this app open until checkout is complete.
+                    </span>
+                  </span>
+                </div>
+                <div id="step3Status" class="mt-2 text-xs text-slate-500">Status: Not started.</div>
+                <div id="step3Data" class="mt-1 text-xs text-slate-500"></div>
+
+                <div class="mt-3 space-y-3">
+                  <div>
+                    <label class="block text-xs text-slate-700 mb-1">Start date
+                      <input type="date" id="startDate" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900">
+                    </label>
+                    <label class="block text-xs text-slate-700 mb-1">Nights
+                      <input type="number" id="nights" value="1" min="1" max="14" step="1" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900">
+                    </label>
+                    <div class="text-xs mb-2">
+                      <div><span class="text-slate-500">Date range:</span> <span id="dateRange" class="text-slate-900"></span></div>
+                      <div id="formErrors" class="text-red-700 mt-1 text-[11px]"></div>
+                      <div id="bookingModeMessage" class="text-[11px] mt-2 p-2 rounded bg-blue-50 text-blue-700 border border-blue-200 hidden"></div>
+                    </div>
+                  </div>
+
+                  <!-- Countdown -->
+                  <div id="countdownSection" class="hidden mb-1 p-3 rounded-md bg-amber-50 border border-amber-200">
+                    <div class="text-[11px] font-semibold text-amber-800 mb-2">Queue armed - keep this app open</div>
+                    <div class="text-xs text-amber-900 mb-2">
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-slate-600">Current time:</span>
+                        <span id="currentTimeClock" class="font-mono font-semibold">00:00:00.000</span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-slate-600">Auto-start:</span>
+                        <span id="countdownTarget" class="font-mono font-semibold">08:59:00 AM</span>
+                      </div>
+                    </div>
+                    <div class="text-center mb-2">
+                      <div class="text-[11px] text-slate-600 mb-1">Countdown to 9:00 AM unlock:</div>
+                      <div class="text-xl font-mono font-bold text-amber-900" id="countdownClock">00:00:00.000</div>
+                    </div>
+                    <div class="text-[11px] text-amber-700 text-center" id="countdownStatus">Waiting to start...</div>
+                    <div class="text-[11px] text-amber-600 mt-2 border-t border-amber-300 pt-2">
+                      Do not close this app. Return by 08:59 to complete checkout.
+                    </div>
+                  </div>
+
+                  <!-- Controls -->
+                  <div id="pollingControls">
+                    <button id="actionBtn" disabled class="w-full inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900">
+                      Add to Cart
+                    </button>
+                    <button id="stopPollingBtn" class="hidden mt-2 w-full inline-flex items-center justify-center rounded-md bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-red-700">
+                      Stop Polling
+                    </button>
+                  </div>
+
+                  <!-- Polling status -->
+                  <div class="border-t border-dashed border-slate-200 pt-3">
+                    <div class="text-xs font-semibold text-slate-700 mb-1">Polling status</div>
+                    <div class="text-xs space-y-1">
+                      <div class="flex items-center gap-2">
+                        <span class="text-slate-500">State:</span>
+                        <span id="pollingState" class="text-slate-600">Idle</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-slate-500">Requests:</span>
+                        <span id="pollingRequests" class="text-slate-900">0</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-slate-500">Elapsed:</span>
+                        <span id="pollingElapsed" class="text-slate-900">0.0s</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-slate-500">Last status:</span>
+                        <span id="pollingLastStatus" class="text-slate-900 text-xs font-medium">—</span>
+                      </div>
+                      <div id="pollingMessage" class="hidden text-[11px] mt-2 p-2 rounded bg-slate-50 text-slate-700 border border-slate-200"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </li>
+          </ol>
+
+          <!-- Run complete overlay (locks current state after success) -->
+          <div id="runCompleteOverlay" class="hidden absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center px-4">
+            <div class="w-full max-w-sm rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+              <div class="text-xs font-semibold text-emerald-800 mb-1">Run complete</div>
+              <div class="text-[11px] text-emerald-900 mb-3">
+                Item added to cart. This run is locked to the campsite shown above.
+              </div>
+              <button id="startOverBtn" class="inline-flex items-center rounded-md bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-emerald-800">
+                Start over
+              </button>
+            </div>
+          </div>
+        </div>
+
+          <section id="logsPane" class="hidden mt-3 flex flex-col min-h-0 max-w-full overflow-x-hidden px-6">
+            <div class="mb-2 flex items-center justify-between max-w-full">
+              <div class="text-xs font-semibold text-slate-700">Logs</div>
+              <button id="clearLogsBtn" class="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 shrink-0">
+                Clear logs
+              </button>
+            </div>
+            <div id="logsContainer" class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollable-pane pr-1 max-w-full">
+              <div id="logsEmpty" class="text-xs text-slate-500">No logs yet. Start a probe or polling run to see activity.</div>
+              <ul id="logsList" class="space-y-1 text-xs text-slate-700 max-w-full overflow-x-hidden"></ul>
+            </div>
+          </section>
+        </div>
+      </aside>
+
+      <main class="flex flex-col flex-1 min-w-0 bg-slate-100 overflow-hidden">
+        <div class="flex items-center gap-2 bg-white border-b border-slate-200 px-3 py-2 flex-none min-w-0">
+          <button id="backBtn" class="inline-flex items-center justify-center rounded-md bg-slate-100 p-2 text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed shrink-0" title="Back">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button id="forwardBtn" class="inline-flex items-center justify-center rounded-md bg-slate-100 p-2 text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed shrink-0" title="Forward">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button id="refreshBtn" class="inline-flex items-center justify-center rounded-md bg-slate-100 p-2 text-slate-700 hover:bg-slate-200 shrink-0" title="Refresh">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <input id="urlDisplay" type="text" readonly class="flex-1 min-w-0 rounded-md border border-slate-300 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 font-mono select-all cursor-text overflow-hidden text-ellipsis" value="https://www.reserveamerica.com/" title="Current URL (click to select all)">
+        </div>
+        <webview id="raView" src="about:blank" allowpopups class="flex-1 w-full h-full"></webview>
+      </main>
+    </div>
+    <script src="renderer.js"></script>
+  </body>
+  </html>
+

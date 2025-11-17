@@ -1,0 +1,76 @@
+{
+  "name": "reservation-helper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop helper for Reserve America",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder -mwl",
+    "dist:mac": "electron-builder --mac dmg zip",
+    "dist:win": "electron-builder --win nsis --x64",
+    "dist:win-arm": "electron-builder --win nsis --arm64",
+    "publish": "electron-builder --publish always"
+  },
+  "build": {
+    "appId": "com.campingthing.reservationhelper",
+    "productName": "Reservation Helper",
+    "publish": {
+      "provider": "github",
+      "owner": "mrado1",
+      "repo": "reservation-helper",
+      "private": true,
+      "releaseType": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    },
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    }
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
+    "electron-icon-builder": "^2.0.1"
+  }
+}
