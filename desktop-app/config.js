@@ -9,8 +9,13 @@
 module.exports = {
   // PostHog Analytics Configuration
   posthog: {
-    // Get your API key from: https://app.posthog.com/project/settings
-    apiKey: process.env.POSTHOG_API_KEY || 'phc_GgYKcG4usqHCKvSYLN7QRVvOTKSGWnhmOP3829xp7GA',
+    // Project API key (write-only, for sending events)
+    // Set in .env file as POSTHOG_API_KEY
+    apiKey: process.env.POSTHOG_API_KEY,
+    
+    // Personal API key (for reading feature flags)
+    // Set in .env file as POSTHOG_PERSONAL_API_KEY
+    personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
     
     // PostHog host (use cloud by default)
     host: process.env.POSTHOG_HOST || 'https://app.posthog.com',

@@ -1,6 +1,8 @@
 # Sensitive authentication files
 .jwt_token
 .a1data
+.env
+desktop-app/.env
 
 # Log files
 camping_poll_*.log

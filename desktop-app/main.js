@@ -1,3 +1,6 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const { app, BrowserWindow, ipcMain, session, shell, dialog } = require('electron');
 const path = require('path');
 const { setTimeout: delay } = require('timers/promises');
@@ -61,18 +64,36 @@ let featureFlags = {
   countdown_enabled: true
 };
 
-// Fetch feature flags
+// Fetch feature flags using Personal API Key
 async function fetchFeatureFlags() {
   try {
     console.log('Fetching feature flags for device:', deviceId);
-    const flags = await posthog.getAllFlags(deviceId);
-    console.log('Raw flags from PostHog:', flags);
     
-    if (flags && typeof flags === 'object') {
-      featureFlags = { ...featureFlags, ...flags };
+    // Use Personal API Key for feature flag evaluation
+    const response = await fetch(`${config.posthog.host}/decide/?v=3`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.posthog.personalApiKey}`
+      },
+      body: JSON.stringify({
+        api_key: config.posthog.apiKey,
+        distinct_id: deviceId
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`PostHog API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Raw response from PostHog:', data);
+    
+    if (data.featureFlags) {
+      featureFlags = { ...featureFlags, ...data.featureFlags };
       console.log('Feature flags loaded successfully:', featureFlags);
     } else {
-      console.warn('Invalid flags response:', flags);
+      console.warn('No feature flags in response:', data);
     }
     
     return featureFlags;
