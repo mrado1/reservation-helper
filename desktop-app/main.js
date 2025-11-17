@@ -1484,8 +1484,15 @@ autoUpdater.on('update-downloaded', (info) => {
   }).then((result) => {
     if (result.response === 0) {
       // User clicked "Restart Now"
-      // isSilent = false, isForceRunAfter = true
-      autoUpdater.quitAndInstall(false, true);
+      // Close all windows first
+      BrowserWindow.getAllWindows().forEach(window => {
+        window.close();
+      });
+      // Force quit and install
+      setImmediate(() => {
+        app.removeAllListeners('window-all-closed');
+        autoUpdater.quitAndInstall(false, true);
+      });
     }
   });
 });

@@ -2,7 +2,7 @@
 
 A desktop application to help secure hard-to-get campsite reservations on Reserve America. Built with Electron, this app automates the booking process with high-speed polling and countdown timers for 9 AM release windows.
 
-![Version](https://img.shields.io/badge/version-0.3.3-blue)
+![Version](https://img.shields.io/badge/version-0.3.4-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey)
 ![License](https://img.shields.io/badge/license-Private-red)
 
