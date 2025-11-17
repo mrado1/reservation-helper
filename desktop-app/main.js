@@ -1484,7 +1484,8 @@ autoUpdater.on('update-downloaded', (info) => {
   }).then((result) => {
     if (result.response === 0) {
       // User clicked "Restart Now"
-      autoUpdater.quitAndInstall();
+      // isSilent = false, isForceRunAfter = true
+      autoUpdater.quitAndInstall(false, true);
     }
   });
 });
