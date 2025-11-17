@@ -1,6 +1,3 @@
-// Load environment variables from .env file
-require('dotenv').config();
-
 const { app, BrowserWindow, ipcMain, session, shell, dialog } = require('electron');
 const path = require('path');
 const { setTimeout: delay } = require('timers/promises');
@@ -370,7 +367,7 @@ async function sendAddToCartRequest() {
   inFlightCount++;
   requestCount++;
   const currentRequestId = requestCount;
-
+  
   // Match exact payload structure from working bash script
   const payload = {
     contractCode: pollingConfig.contractCode || 'NY',
@@ -382,7 +379,7 @@ async function sendAddToCartRequest() {
     primaryItemID: null,
     primaryResNum: null
   };
-
+  
   console.log(`[Polling] Request ${currentRequestId}:`, payload);
   // M9+: Log every polling request for power users
   addLogEntry({
@@ -395,7 +392,7 @@ async function sendAddToCartRequest() {
   let body = null;
   let bodyText = '';
   let errorForLog = null;
-
+  
   try {
     // Use exact RA API endpoint from working bash script
     // Headers MUST match bash script exactly - RA API is very picky
@@ -441,7 +438,7 @@ async function sendAddToCartRequest() {
       console.log(`[Polling] 400 Error Details - Auth token length:`, pollingConfig.idToken.length);
       console.log(`[Polling] 400 Error Details - a1Data length:`, pollingConfig.a1Data.length);
     }
-
+    
     // Normal flow continues below; status/body are used for response logging and state transitions.
     // M7: Reset throttle/failure counters on success
     if (status === 200) {
