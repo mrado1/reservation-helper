@@ -18,15 +18,18 @@ autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.logger = require('electron-log');
 autoUpdater.logger.transports.file.level = 'info';
 
-// Initialize PostHog
-const posthog = new PostHog(
-  config.posthog.apiKey,
-  { 
-    host: config.posthog.host,
-    flushAt: config.posthog.flushAt,
-    flushInterval: config.posthog.flushInterval
-  }
-);
+// Initialize PostHog (analytics + server-side feature flags)
+const posthog = new PostHog(config.posthog.apiKey, {
+  host: config.posthog.host,
+  flushAt: config.posthog.flushAt,
+  flushInterval: config.posthog.flushInterval,
+
+  // Critical for feature flags: allows server-side evaluation
+  personalApiKey: config.posthog.personalApiKey,
+
+  // Poll feature flag definitions regularly for local evaluation
+  featureFlagsPollingInterval: 30_000, // 30s; fine for our use case
+});
 
 // Get anonymous machine ID
 let deviceId;
@@ -57,50 +60,35 @@ function trackEvent(eventName, properties = {}) {
   }
 }
 
-// Cache feature flags
-let featureFlags = {
-  app_enabled: true,
-  booking_enabled: true,
-  countdown_enabled: true
-};
+// Cache feature flags – start with safe defaults from config
+let featureFlags = { ...config.defaultFlags };
 
-// Fetch feature flags using Personal API Key
+// Fetch feature flags using PostHog SDK (server-side evaluation)
 async function fetchFeatureFlags() {
   try {
-    console.log('Fetching feature flags for device:', deviceId);
-    
-    // Use Personal API Key for feature flag evaluation
-    const response = await fetch(`${config.posthog.host}/decide/?v=3`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.posthog.personalApiKey}`
-      },
-      body: JSON.stringify({
-        api_key: config.posthog.apiKey,
-        distinct_id: deviceId
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`PostHog API error: ${response.status} ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    console.log('Raw response from PostHog:', data);
-    
-    if (data.featureFlags) {
-      featureFlags = { ...featureFlags, ...data.featureFlags };
-      console.log('Feature flags loaded successfully:', featureFlags);
+    console.log('Fetching feature flags via PostHog SDK for device:', deviceId);
+
+    // posthog-node will use the personalApiKey to fetch flag definitions
+    // and evaluate them locally for this distinctId.
+    const flagsFromPosthog = await posthog.getAllFlags(deviceId);
+    console.log('Raw flags from PostHog SDK:', flagsFromPosthog);
+
+    if (flagsFromPosthog && typeof flagsFromPosthog === 'object') {
+      // Merge server-side flags over our defaults
+      featureFlags = { ...config.defaultFlags, ...flagsFromPosthog };
+      console.log('Effective feature flags:', featureFlags);
     } else {
-      console.warn('No feature flags in response:', data);
+      console.warn('PostHog returned no flags, using defaultFlags from config:', config.defaultFlags);
+      featureFlags = { ...config.defaultFlags };
     }
-    
+
     return featureFlags;
   } catch (err) {
     console.error('Could not fetch feature flags:', err);
     console.error('Error details:', err.message, err.stack);
-    // Fail-open: if we can't fetch flags, assume enabled
+    // Fail-open: if we can't fetch flags, use configured defaults
+    featureFlags = { ...config.defaultFlags };
+    console.log('Using default flags due to error:', featureFlags);
     return featureFlags;
   }
 }

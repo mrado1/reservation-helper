@@ -474,23 +474,23 @@ function validateCookies({ idToken, a1Data }) {
   // If cookies are not valid, we can definitively say "Not signed in"
   if (!cookiesLookValid) {
     lastAuthLoggedIn = false;
-    updateStepper();
+  updateStepper();
     loginBannerEl.classList.remove('hidden');
     if (loginCta) loginCta.style.display = 'block';
     if (authLiveEl) authLiveEl.textContent = 'Live auth: Not authenticated';
 
     // Auto-route to RA sign-in once
     if (!didRouteToLogin) {
-      didRouteToLogin = true;
-      const loginUrl = 'https://www.reserveamerica.com/signin';
-      loginPending = true;
-      raView.setAttribute('src', loginUrl);
-      setTimeout(() => {
-        if (!/\/signin/i.test(raView.getURL?.() || '')) {
-          raView.setAttribute('src', loginUrl);
-        }
-      }, 50);
-    }
+    didRouteToLogin = true;
+    const loginUrl = 'https://www.reserveamerica.com/signin';
+    loginPending = true;
+    raView.setAttribute('src', loginUrl);
+    setTimeout(() => {
+      if (!/\/signin/i.test(raView.getURL?.() || '')) {
+        raView.setAttribute('src', loginUrl);
+      }
+    }, 50);
+  }
     return;
   }
 
