@@ -9,13 +9,18 @@
 module.exports = {
   // PostHog Analytics Configuration
   posthog: {
-    // Project API key (write-only, for sending events)
-    // Set in .env file as POSTHOG_API_KEY
-    apiKey: process.env.POSTHOG_API_KEY,
+    // Project API key (write-only, for sending events).
+    // In development, set via .env as POSTHOG_API_KEY.
+    // In production builds, this falls back to a non-empty placeholder so the
+    // app doesn't crash if env vars are missing. Replace with a real key on
+    // your build machine when you want live analytics/flags in distributed apps.
+    apiKey: process.env.POSTHOG_API_KEY || 'phc_YOUR_PROJECT_API_KEY_HERE',
     
-    // Personal API key (for reading feature flags)
-    // Set in .env file as POSTHOG_PERSONAL_API_KEY
-    personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
+    // Personal / feature-flags API key (for reading feature flags).
+    // Set via .env as POSTHOG_PERSONAL_API_KEY in development, and optionally
+    // hard-code on your build machine for production if you want remote kill
+    // switches to work in distributed apps.
+    personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY || 'YOUR_FEATURE_FLAGS_API_KEY_HERE',
     
     // PostHog host (use cloud by default)
     host: process.env.POSTHOG_HOST || 'https://app.posthog.com',
