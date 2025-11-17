@@ -98,16 +98,16 @@
 
 ### Security & Privacy
 - [x] Removed hardcoded PostHog API keys from committed code
-- [x] Moved keys into `.env` (POSTHOG_API_KEY, POSTHOG_PERSONAL_API_KEY)
-- [ ] Consider rotating keys since they were previously committed
+- [x] Moved keys into `.env` / local `config.js` (POSTHOG_API_KEY, POSTHOG_PERSONAL_API_KEY)
+- [x] Rotated PostHog keys after previous exposure
 - [ ] Decide on long-term repo visibility strategy
   - Public: Easy updates, but API key exposed
   - Private: Secure, but requires notarization for updates
 
 ### Windows Build
-- [ ] Set up Windows build environment (requires Wine on Mac, or Windows machine)
-- [ ] Test Windows auto-updates
-- [ ] Generate Windows code signing certificate (optional but recommended)
+- [ ] Set up Windows build environment on a real Windows 10+ x64 machine
+- [ ] Build NSIS installer via `npm run dist:win` on Windows
+- [ ] (Optional) Add Windows code signing certificate and SmartScreen-friendly signing
 
 ### Final Testing
 - [ ] Test all analytics events fire correctly in PostHog (note: `booking_error` still TODO)
