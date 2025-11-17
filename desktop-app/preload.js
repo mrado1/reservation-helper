@@ -43,7 +43,24 @@ contextBridge.exposeInMainWorld('ra', {
     ipcRenderer.on('ra:logsUpdated', handler);
     return () => ipcRenderer.removeListener('ra:logsUpdated', handler);
   },
-  clearLogs: () => ipcRenderer.invoke('ra:clearLogs')
+  clearLogs: () => ipcRenderer.invoke('ra:clearLogs'),
+  
+  // M10: Auto-update APIs
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateAvailable: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on('update:available', handler);
+    return () => ipcRenderer.removeListener('update:available', handler);
+  },
+  onUpdateProgress: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on('update:progress', handler);
+    return () => ipcRenderer.removeListener('update:progress', handler);
+  },
+  
+  // M10: Feature flags API
+  getFeatureFlags: () => ipcRenderer.invoke('flags:get')
 });
 
 

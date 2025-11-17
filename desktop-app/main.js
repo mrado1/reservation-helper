@@ -1,7 +1,99 @@
-const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell, dialog } = require('electron');
 const path = require('path');
 const { setTimeout: delay } = require('timers/promises');
 const fs = require('fs');
+
+// M10: Auto-updater, analytics, and feature flags
+const { autoUpdater } = require('electron-updater');
+const { PostHog } = require('posthog-node');
+const { machineIdSync } = require('node-machine-id');
+const config = require('./config');
+
+// Configure auto-updater
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.logger = require('electron-log');
+autoUpdater.logger.transports.file.level = 'info';
+
+// Initialize PostHog
+const posthog = new PostHog(
+  config.posthog.apiKey,
+  { 
+    host: config.posthog.host,
+    flushAt: config.posthog.flushAt,
+    flushInterval: config.posthog.flushInterval
+  }
+);
+
+// Get anonymous machine ID
+let deviceId;
+try {
+  deviceId = machineIdSync({ original: true });
+} catch (err) {
+  console.error('Could not get machine ID:', err);
+  deviceId = `unknown-${Date.now()}`;
+}
+
+// Helper function to track events
+function trackEvent(eventName, properties = {}) {
+  try {
+    posthog.capture({
+      distinctId: deviceId,
+      event: eventName,
+      properties: {
+        ...properties,
+        app_version: app.getVersion(),
+        platform: process.platform,
+        arch: process.arch,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (err) {
+    console.error('Analytics error:', err);
+    // Fail silently - don't break app if analytics fails
+  }
+}
+
+// Cache feature flags
+let featureFlags = {
+  app_enabled: true,
+  booking_enabled: true,
+  countdown_enabled: true
+};
+
+// Fetch feature flags
+async function fetchFeatureFlags() {
+  try {
+    const flags = await posthog.getAllFlags(deviceId);
+    featureFlags = { ...featureFlags, ...flags };
+    console.log('Feature flags loaded:', featureFlags);
+    return featureFlags;
+  } catch (err) {
+    console.error('Could not fetch feature flags:', err);
+    // Fail-open: if we can't fetch flags, assume enabled
+    return featureFlags;
+  }
+}
+
+// Check if app is enabled
+async function checkAppEnabled() {
+  const flags = await fetchFeatureFlags();
+  
+  if (!flags.app_enabled) {
+    const message = flags.message || 
+      'Reservation Helper is temporarily unavailable. Please check back later or contact support.';
+    
+    dialog.showErrorBox('App Unavailable', message);
+    return false;
+  }
+  
+  return true;
+}
+
+// Ensure events are flushed on app quit
+app.on('before-quit', async () => {
+  await posthog.shutdown();
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Window reference
@@ -383,6 +475,16 @@ async function sendAddToCartRequest() {
           console.log('[Polling] SUCCESS CONFIRMED via cart!');
           stopPollingWorker();
           pollingState = 'success';
+          
+          // M10: Track booking success
+          trackEvent('booking_success', {
+            facility_id: pollingConfig.facilityID,
+            site_id: pollingConfig.siteID,
+            nights: pollingConfig.units,
+            request_count: requestCount,
+            elapsed_ms: Date.now() - pollingStartTime
+          });
+          
           broadcastPollingStatus({
             state: 'success',
             requestCount,
@@ -450,6 +552,16 @@ async function sendAddToCartRequest() {
     if (status === 401 || status === 403) {
       stopPollingWorker();
       pollingState = 'error';
+      
+      // M10: Track booking error
+      trackEvent('booking_error', {
+        facility_id: pollingConfig.facilityID,
+        site_id: pollingConfig.siteID,
+        error_type: 'auth_error',
+        http_status: status,
+        error_message: `Authentication failed (HTTP ${status})`
+      });
+      
       broadcastPollingStatus({
         state: 'error',
         requestCount,
@@ -545,6 +657,16 @@ async function sendAddToCartRequest() {
             console.log('[Polling] OVERLAP VERIFIED AS SUCCESS via cart');
             stopPollingWorker();
             pollingState = 'success';
+            
+            // M10: Track booking success
+            trackEvent('booking_success', {
+              facility_id: pollingConfig.facilityID,
+              site_id: pollingConfig.siteID,
+              nights: pollingConfig.units,
+              request_count: requestCount,
+              elapsed_ms: Date.now() - pollingStartTime
+            });
+            
             broadcastPollingStatus({
               state: 'success',
               requestCount,
@@ -1039,6 +1161,12 @@ ipcMain.handle('auth:probe', async () => {
 
 // IPC: start polling
 ipcMain.handle('ra:startPolling', async (event, formData) => {
+  // M10: Check if booking is enabled
+  await fetchFeatureFlags();
+  if (!featureFlags.booking_enabled) {
+    return { ok: false, error: 'Booking is temporarily disabled. Please try again later.' };
+  }
+  
   if (pollingState === 'polling') {
     return { ok: false, error: 'Already polling' };
   }
@@ -1059,6 +1187,14 @@ ipcMain.handle('ra:startPolling', async (event, formData) => {
   if (!formData || !formData.startDate || !formData.nights) {
     return { ok: false, error: 'Missing form data (startDate/nights)' };
   }
+  
+  // M10: Track booking started
+  trackEvent('booking_started', {
+    facility_id: lastContext.facilityId,
+    site_id: lastContext.siteId,
+    nights: formData.nights,
+    booking_mode: formData.mode || 'add'
+  });
   
   // Normalize a1Data: decode if URL-encoded (starts with %7B...%7D)
   try {
@@ -1214,6 +1350,25 @@ ipcMain.handle('ra:clearLogs', async () => {
   return { ok: true };
 });
 
+// M10: IPC handlers for auto-updates and feature flags
+ipcMain.handle('update:check', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, updateInfo: result.updateInfo };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('update:install', () => {
+  autoUpdater.quitAndInstall();
+});
+
+ipcMain.handle('flags:get', async () => {
+  await fetchFeatureFlags();
+  return featureFlags;
+});
+
 // IPC: get shopping cart
 ipcMain.handle('ra:getCart', async (event) => {
   try {
@@ -1273,9 +1428,88 @@ function setupCookieWatcher() {
   });
 }
 
-app.whenReady().then(() => {
+// ─────────────────────────────────────────────────────────────────────────────
+// M10: Auto-Updater Events
+// ─────────────────────────────────────────────────────────────────────────────
+
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for updates...');
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('Update available:', info.version);
+  
+  // Notify renderer process
+  if (mainWindow) {
+    mainWindow.webContents.send('update:available', {
+      version: info.version,
+      releaseDate: info.releaseDate
+    });
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('App is up to date:', info.version);
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('Update error:', err);
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  console.log(`Download progress: ${progressObj.percent}%`);
+  
+  // Notify renderer process
+  if (mainWindow) {
+    mainWindow.webContents.send('update:progress', {
+      percent: progressObj.percent,
+      transferred: progressObj.transferred,
+      total: progressObj.total
+    });
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('Update downloaded:', info.version);
+  
+  // Show dialog to user
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'Update Ready',
+    message: 'A new version has been downloaded.',
+    detail: 'The app will restart to install the update.',
+    buttons: ['Restart Now', 'Later'],
+    defaultId: 0,
+    cancelId: 1
+  }).then((result) => {
+    if (result.response === 0) {
+      // User clicked "Restart Now"
+      autoUpdater.quitAndInstall();
+    }
+  });
+});
+
+app.whenReady().then(async () => {
+  // M10: Track app launch
+  trackEvent('app_launched');
+  
+  // M10: Check if app is enabled via feature flags
+  const enabled = await checkAppEnabled();
+  if (!enabled) {
+    app.quit();
+    return;
+  }
+  
   setupCookieWatcher();
   createWindow();
+  
+  // M10: Check for updates after window is created (wait 3 seconds)
+  setTimeout(() => {
+    if (!config.isDev) {
+      autoUpdater.checkForUpdatesAndNotify();
+    }
+  }, 3000);
+  
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

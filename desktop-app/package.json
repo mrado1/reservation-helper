@@ -72,5 +72,11 @@
     "electron": "^30.0.0",
     "electron-builder": "^24.13.3",
     "electron-icon-builder": "^2.0.1"
+  },
+  "dependencies": {
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.6.2",
+    "node-machine-id": "^1.1.12",
+    "posthog-node": "^5.11.2"
   }
 }

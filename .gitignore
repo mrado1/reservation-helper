@@ -2,6 +2,9 @@
 .jwt_token
 .a1data
 
+# Configuration files with API keys
+desktop-app/config.js
+
 # Log files
 camping_poll_*.log
 
