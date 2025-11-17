@@ -112,8 +112,8 @@
 ### Final Testing
 - [ ] Test all analytics events fire correctly in PostHog
 - [ ] Verify device IDs are consistent across sessions
-- [ ] Test feature flags with various scenarios
-- [ ] Test auto-update with multiple version jumps (0.2.0 → 0.4.0)
+- [x] Test feature flags with various scenarios (app and booking kill switches)
+- [ ] Test auto-update with multiple version jumps (0.2.0 → 0.4.0+)
 - [ ] Test app behavior when update server is unreachable
 
 ### Documentation
