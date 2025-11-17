@@ -3,6 +3,7 @@
 .a1data
 .env
 desktop-app/.env
+desktop-app/config.js
 
 # Log files
 camping_poll_*.log
