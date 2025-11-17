@@ -19,11 +19,13 @@ A desktop application to help secure hard-to-get campsite reservations on Reserv
 - **🎨 Modern UI**: Clean, responsive interface with Tailwind CSS
 - **🖥️ Cross-Platform**: Native installers for macOS and Windows
 
-### 🚀 Coming Soon (M10)
+### 🚀 M10: Auto-Updates, Analytics, Feature Flags
 
-- **Auto-Updates**: Automatic app updates via GitHub Releases
-- **Analytics**: Anonymous usage tracking with PostHog
-- **Feature Flags**: Remote control and kill switch capabilities
+- **Auto-Updates**: Automatic app updates via GitHub Releases (macOS signed DMG, Windows NSIS installer)
+- **Analytics**: Anonymous usage tracking with PostHog (app launches, booking attempts, success/error)
+- **Feature Flags**: Remote control and kill switches:
+  - `app_enabled` – global kill switch (disable entire app)
+  - `booking_enabled` – disable booking while keeping UI available
 
 ## Installation
 
