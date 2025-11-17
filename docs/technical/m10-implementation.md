@@ -305,18 +305,18 @@ npm install posthog-node node-machine-id
 
 ### Configuration
 
-Create `desktop-app/config.js`:
+Create `desktop-app/config.js` (or use the provided `config.example.js`):
 
 ```javascript
 module.exports = {
   posthog: {
-    apiKey: process.env.POSTHOG_API_KEY || 'phc_YOUR_KEY_HERE',
+    apiKey: process.env.POSTHOG_API_KEY,
     host: process.env.POSTHOG_HOST || 'https://app.posthog.com'
   }
 };
 ```
 
-**Important**: Add `config.js` to `.gitignore` if it contains real keys, or use environment variables.
+**Important**: Do **not** hardcode real API keys in `config.js`. Use environment variables (`POSTHOG_API_KEY`, `POSTHOG_PERSONAL_API_KEY`) loaded from `.env` instead.
 
 ### Implementation in `main.js`
 
