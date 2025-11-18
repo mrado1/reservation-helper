@@ -455,6 +455,15 @@ function renderChecks(jwtValid, a1Valid, expMs) {
 }
 
 function validateCookies({ idToken, a1Data }) {
+  // After a successful booking run we "lock" the sidebar UI so the
+  // auth section doesn't flicker between signed in / signed out as
+  // Reserve America mutates cookies during cart operations.
+  // If we've already confirmed a logged-in state and the run is locked,
+  // ignore further cookie churn.
+  if (runLocked && lastAuthLoggedIn) {
+    return;
+  }
+
   const payload = idToken ? decodeJWT(idToken) : null;
   const expMs = payload?.exp ? payload.exp * 1000 : null;
   let a1Decoded = a1Data || '';
@@ -559,6 +568,11 @@ async function grabCookies() {
 
 // Auto-refresh cookie updates
 window.ra.onCookieChanged((c) => {
+  // Once a run is locked after success, we keep showing the last good
+  // auth state and ignore subsequent cookie noise to avoid layout jumps.
+  if (runLocked) {
+    return;
+  }
   // Recompute validation with fresh values by refetching.
   // Step 1 summary will reflect the latest time; no extra cookie-updated line needed.
   cookieUpdatesEl.textContent = '';
