@@ -79,6 +79,23 @@
 
 **Note**: Code signing certificate is tied to personal Apple Developer account (credentials in 1Password).
 
+### Tailwind CSS Bundling (v0.4.6)
+- [x] Fixed broken UI in packaged app (Tailwind CDN was failing)
+- [x] Downgraded from Tailwind v4 to v3 for compatibility
+- [x] Created `renderer/input.css` and `tailwind.config.js`
+- [x] Built and bundled `renderer/output.css` locally
+- [x] Updated `index.html` to use local CSS instead of CDN
+- [x] Removed CSP restrictions for `cdn.tailwindcss.com`
+- [x] Verified styling works in both dev and packaged app
+- [x] Added Tailwind files to git (input.css, output.css, tailwind.config.js)
+
+### Offline Detection (v0.4.6)
+- [x] Added offline state detection using `navigator.onLine`
+- [x] Created minimal offline empty state UI (16px icon + text)
+- [x] Added event listeners for `online`/`offline` events
+- [x] Hides webview and shows "Offline" message when disconnected
+- [x] Automatically restores webview when connection returns
+
 ## 🔄 In Progress
 
 ### PostHog Feature Flags Setup
@@ -140,14 +157,15 @@
 
 ## 📝 Notes
 
-- GitHub token expires: Feb 15, 2026 (90 days) - stored in 1Password
+- GitHub token expires: Feb 15, 2026 (90 days) - stored in 1Password and `~/.zshrc`
 - Apple Developer ID certificate: Tied to personal account - credentials in 1Password
 - PostHog project: https://app.posthog.com
-- Current version: 0.4.5 (signed, feature flags integrated, keys rotated)
+- Current version: 0.4.6 (bundled Tailwind CSS, offline detection)
 - Repository: https://github.com/mrado1/reservation-helper (currently public)
 - Auto-update check happens 3 seconds after app launch
 - Feature flags are cached and fetched on app launch and before booking
 - Code signing requires "Always Allow" for multiple components during build
+- **Tailwind CSS**: Now bundled locally (v3) instead of CDN for offline support
 
 ---
 
@@ -157,6 +175,9 @@
 2. ✅ ~~Test auto-update flow end-to-end~~ - DONE (v0.4.0 → v0.4.1 successful)
 3. ✅ ~~Set up PostHog feature flags (`app_enabled`, `booking_enabled`)~~
 4. ✅ ~~Test feature flag kill switches in app~~
-5. Decide on long-term repo visibility strategy
-6. Consider rotating PostHog API key before external distribution
+5. ✅ ~~Fix broken UI in packaged app (bundle Tailwind CSS)~~ - DONE (v0.4.6)
+6. ✅ ~~Add offline detection~~ - DONE (v0.4.6)
+7. Build and publish v0.4.6 to GitHub Releases
+8. Decide on long-term repo visibility strategy
+9. Consider rotating PostHog API key before external distribution
 
