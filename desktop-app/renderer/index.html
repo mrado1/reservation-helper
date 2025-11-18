@@ -2,21 +2,10 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' https://cdn.tailwindcss.com; frame-src https://www.reserveamerica.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-src https://www.reserveamerica.com;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reservation Helper</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter var', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol']
-            }
-          }
-        }
-      }
-    </script>
+    <link rel="stylesheet" href="output.css">
     <style>
       * {
         box-sizing: border-box;
@@ -318,7 +307,17 @@
           </button>
           <input id="urlDisplay" type="text" readonly class="flex-1 min-w-0 rounded-md border border-slate-300 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 font-mono select-all cursor-text overflow-hidden text-ellipsis" value="https://www.reserveamerica.com/" title="Current URL (click to select all)">
         </div>
-        <webview id="raView" src="about:blank" allowpopups class="flex-1 w-full h-full"></webview>
+        <div class="relative flex-1 w-full h-full">
+          <webview id="raView" src="about:blank" allowpopups class="w-full h-full"></webview>
+          <div id="offlineState" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-slate-50">
+            <svg class="text-slate-400 mb-1" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414" />
+            </svg>
+            <p class="text-slate-900 text-xs">Offline</p>
+            <p class="text-slate-400 text-xs">Please connect to the internet to make a reservation.</p>
+
+          </div>
+        </div>
       </main>
     </div>
     <script src="renderer.js"></script>

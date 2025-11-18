@@ -32,6 +32,7 @@ const backBtn = document.getElementById('backBtn');
 const forwardBtn = document.getElementById('forwardBtn');
 const refreshBtn = document.getElementById('refreshBtn');
 const urlDisplayEl = document.getElementById('urlDisplay');
+const offlineStateEl = document.getElementById('offlineState');
 
 // M9: Stepper + tabs + logs
 const tabBookingBtn = document.getElementById('tabBooking');
@@ -1411,5 +1412,26 @@ refreshBtn?.addEventListener('click', () => {
 raView.addEventListener('did-navigate', updateNavButtons);
 raView.addEventListener('did-navigate-in-page', updateNavButtons);
 raView.addEventListener('dom-ready', updateNavButtons);
+
+// ========================================
+// Offline detection
+// ========================================
+function updateOfflineState() {
+  const isOffline = !navigator.onLine;
+  if (isOffline) {
+    offlineStateEl.classList.remove('hidden');
+    raView.classList.add('hidden');
+  } else {
+    offlineStateEl.classList.add('hidden');
+    raView.classList.remove('hidden');
+  }
+}
+
+// Listen for online/offline events
+window.addEventListener('online', updateOfflineState);
+window.addEventListener('offline', updateOfflineState);
+
+// Check initial state
+updateOfflineState();
 
 
