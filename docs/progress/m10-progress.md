@@ -160,7 +160,7 @@
 - GitHub token expires: Feb 15, 2026 (90 days) - stored in 1Password and `~/.zshrc`
 - Apple Developer ID certificate: Tied to personal account - credentials in 1Password
 - PostHog project: https://app.posthog.com
-- Current version: 0.4.6 (bundled Tailwind CSS, offline detection)
+- Current version: 0.4.7 (auth state freeze after success, bundled Tailwind CSS, offline detection)
 - Repository: https://github.com/mrado1/reservation-helper (currently public)
 - Auto-update check happens 3 seconds after app launch
 - Feature flags are cached and fetched on app launch and before booking
