@@ -1138,7 +1138,10 @@ actionBtn?.addEventListener('click', async () => {
     // Add mode: start polling immediately
     console.log('[Add] Starting polling with form data:', formData);
     
-    const result = await window.ra.startPolling(formData);
+    const result = await window.ra.startPolling({
+      ...formData,
+      mode: 'add'
+    });
     if (!result.ok) {
       alert(`Cannot start polling: ${result.error}`);
       return;
@@ -1207,7 +1210,11 @@ function startCountdown(formData) {
       
       console.log('[Queue] Target time reached, starting polling...');
       
-      const result = await window.ra.startPolling(formData);
+      const result = await window.ra.startPolling({
+        ...formData,
+        mode: 'queue',
+        unlockAtMs: countdownUnlockTimestamp
+      });
       if (!result.ok) {
         alert(`Failed to start polling: ${result.error}`);
         // Reset UI

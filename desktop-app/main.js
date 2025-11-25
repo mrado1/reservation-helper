@@ -592,15 +592,36 @@ async function sendAddToCartRequest() {
     if (status === 417 && body.faults && body.faults.length > 0) {
       const fault = body.faults[0];
       const serverMessage = fault.defaultMessage || fault.messageTemplate || body.message || `Unknown error from Reserve America (HTTP ${status})`;
-      
-      // Time-gated error (9-month rule or "try again at X time") - should use Queue mode instead
+
+      // Time-gated error (9-month rule or "try again at X time")
       const isTooEarly = fault.msgKey === 'R1-V-100017.error' || 
                          fault.msgKey === 'R6-V-100013.error' ||
                          /within 9 Month/i.test(fault.defaultMessage || '') ||
                          /cannot be reserved at this time/i.test(fault.defaultMessage || '') ||
                          /try again later at/i.test(fault.defaultMessage || '');
-      
+
+      // Determine mode/unlock timing for smarter handling
+      const mode = pollingConfig?.mode || 'add';
+      const unlockAtMs = pollingConfig?.unlockAtMs || 0;
+      const now = Date.now();
+      const unlockGraceMs = 3000; // allow a small grace window after unlock
+
       if (isTooEarly) {
+        // In queue mode before unlock, treat "too early" as expected noise and continue polling
+        if (mode === 'queue' && unlockAtMs && now < unlockAtMs + unlockGraceMs) {
+          broadcastPollingStatus({
+            state: 'polling',
+            requestCount,
+            elapsedMs: Date.now() - pollingStartTime,
+            lastHttpStatus: status,
+            lastMessage: 'Waiting for unlock at 9:00 AM; Reserve America is still reporting that this date cannot be reserved yet.',
+            serverMessage,
+            lastUpdated: Date.now()
+          });
+          return; // keep polling
+        }
+
+        // Outside the pre-unlock window, treat as a real "too early" error
         stopPollingWorker();
         pollingState = 'error';
         broadcastPollingStatus({
@@ -608,15 +629,83 @@ async function sendAddToCartRequest() {
           requestCount,
           elapsedMs: Date.now() - pollingStartTime,
           lastHttpStatus: status,
-          lastMessage: 'Too early: use "Queue Cart" to schedule auto-start at 08:59:55.',
+          lastMessage: 'Too early: use \"Queue Cart\" to schedule auto-start at 08:59:55.',
           serverMessage,
           lastUpdated: Date.now()
         });
         return;
       }
-      
-      // Inventory not available (already reserved) - STOP IMMEDIATELY
+
+      // Inventory not available (already reserved) - verify cart first
       if (fault.msgKey === 'inventory.exception') {
+        console.log('[Polling] inventory.exception fault detected - verifying via cart...');
+
+        try {
+          const cookies = await session.defaultSession.cookies.get({ domain: 'www.reserveamerica.com' });
+          const idToken = cookies.find(c => c.name === 'idToken')?.value || '';
+          let a1Data = cookies.find(c => c.name === 'a1Data')?.value || '';
+
+          if (a1Data.startsWith('%7B')) {
+            a1Data = decodeURIComponent(a1Data);
+          }
+
+          const cartResponse = await fetch('https://api.reserveamerica.com/jaxrs-json/shoppingcart/0', {
+            method: 'GET',
+            headers: {
+              'authorization': idToken,
+              'a1data': a1Data,
+              'accept': 'application/json',
+              'accept-language': 'en-US,en;q=0.9',
+              'content-type': 'application/json',
+              'origin': 'https://www.reserveamerica.com',
+              'referer': 'https://www.reserveamerica.com/',
+              'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'
+            }
+          });
+
+          const cartBody = await cartResponse.json();
+          console.log('[Polling] Cart verification after inventory.exception:', {
+            itemsCount: cartBody.itemsCount,
+            lastChanges: cartBody.lastChanges
+          });
+
+          const itemAdded = (cartBody.itemsCount > lastCartItemsCount) ||
+                           (cartBody.lastChanges?.addedItems?.length > 0);
+
+          if (itemAdded) {
+            pollingSuccessConfirmed = true;
+            console.log('[Polling] INVENTORY.EXCEPTION VERIFIED AS SUCCESS via cart');
+            stopPollingWorker();
+            pollingState = 'success';
+
+            // M10: Track booking success
+            trackEvent('booking_success', {
+              facility_id: pollingConfig.facilityID,
+              site_id: pollingConfig.siteID,
+              nights: pollingConfig.units,
+              request_count: requestCount,
+              elapsed_ms: Date.now() - pollingStartTime
+            });
+
+            broadcastPollingStatus({
+              state: 'success',
+              requestCount,
+              elapsedMs: Date.now() - pollingStartTime,
+              lastHttpStatus: status,
+              lastMessage: 'Success! Reservation already present in cart.',
+              serverMessage,
+              lastUpdated: Date.now()
+            });
+
+            navigateWebviewToCart();
+            return;
+          }
+        } catch (verifyErr) {
+          console.error('[Polling] Cart verification after inventory.exception failed:', verifyErr.message);
+          // Fall through to error handling below if verification fails
+        }
+
+        // If cart verification did not show the item, treat as a real inventory error
         stopPollingWorker();
         pollingState = 'error';
         broadcastPollingStatus({
@@ -624,7 +713,7 @@ async function sendAddToCartRequest() {
           requestCount,
           elapsedMs: Date.now() - pollingStartTime,
           lastHttpStatus: status,
-          lastMessage: 'Already reserved: One or more of the Dates not available.',
+          lastMessage: 'Already reserved: One or more of the dates not available.',
           serverMessage,
           lastUpdated: Date.now()
         });
@@ -1240,7 +1329,9 @@ ipcMain.handle('ra:startPolling', async (event, formData) => {
     contractCode,
     cadenceMs: pollingSettings.cadenceMs,
     maxConcurrent: pollingSettings.maxConcurrent,
-    maxDurationMs: pollingSettings.maxDurationMs
+    maxDurationMs: pollingSettings.maxDurationMs,
+    mode: formData.mode || 'add',
+    unlockAtMs: formData.unlockAtMs || null
   };
   
   await startPollingWorker();
