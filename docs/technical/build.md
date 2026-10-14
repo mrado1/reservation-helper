@@ -64,70 +64,37 @@ This attempts to build for macOS, Windows, and Linux. Note:
 
 ### macOS Signing & Notarization
 
-To create signed and notarized macOS builds that don't trigger Gatekeeper warnings:
+Developer ID signing and Apple notarization are separate requirements. A valid signature alone can still be rejected by Gatekeeper as `Unnotarized Developer ID`.
 
-1. **Get an Apple Developer ID certificate**
-   - Enroll in the Apple Developer Program ($99/year)
-   - Create a "Developer ID Application" certificate in Xcode or developer.apple.com
-   - Install the certificate in your macOS Keychain
+The development Mac has a Developer ID Application certificate for team `H44Y4G4ZZG`. Store notarization credentials in Keychain once, using an app-specific password generated for the Apple account that belongs to that team:
 
-2. **Create an app-specific password**
-   - Go to appleid.apple.com
-   - Sign in and go to Security → App-Specific Passwords
-   - Generate a new password for "electron-builder"
+```bash
+xcrun notarytool store-credentials "reservation-helper" \
+  --apple-id "YOUR_DEVELOPER_APPLE_ACCOUNT_EMAIL" \
+  --team-id "H44Y4G4ZZG"
+```
 
-3. **Set environment variables**
+Enter the generated password at the hidden prompt. Do not put passwords in source files, shell startup files, or command arguments. Apple Developer agreements and membership must be current. Wait for confirmation that credentials were validated and saved.
 
-   Add to your `~/.zshrc` or `~/.bash_profile`:
+From `desktop-app`, build using that profile:
 
-   ```bash
-   export APPLE_ID="your-apple-id@example.com"
-   export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
-   export APPLE_TEAM_ID="XXXXXXXXXX"  # Your 10-character Team ID
-   ```
+```bash
+APPLE_KEYCHAIN_PROFILE=reservation-helper npm run dist:mac
+```
 
-4. **Update package.json**
+The installed electron-builder supports this environment variable and notarizes and staples the app before packaging. Without credentials it can skip notarization and still produce artifacts; do not distribute such artifacts as notarized.
 
-   Add to the `"mac"` section in `package.json`:
+Before uploading, verify the app from the actual distribution archive:
 
-   ```json
-   "mac": {
-     "hardenedRuntime": true,
-     "gatekeeperAssess": false,
-     "entitlements": "build/entitlements.mac.plist",
-     "entitlementsInherit": "build/entitlements.mac.plist",
-     "notarize": {
-       "teamId": "XXXXXXXXXX"
-     }
-   }
-   ```
+```bash
+codesign --verify --deep --strict --verbose=2 "Reservation Helper.app"
+xcrun stapler validate "Reservation Helper.app"
+spctl --assess --type execute --verbose=4 "Reservation Helper.app"
+```
 
-5. **Create entitlements file**
+Require all three checks to pass, with Gatekeeper reporting `accepted` and `source=Notarized Developer ID`. These system checks need normal host/Keychain access; restrictive sandboxes can cause misleading verification failures.
 
-   Create `build/entitlements.mac.plist`:
-
-   ```xml
-   <?xml version="1.0" encoding="UTF-8"?>
-   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-   <plist version="1.0">
-   <dict>
-     <key>com.apple.security.cs.allow-jit</key>
-     <true/>
-     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-     <true/>
-     <key>com.apple.security.cs.disable-library-validation</key>
-     <true/>
-   </dict>
-   </plist>
-   ```
-
-6. **Build**
-
-   ```bash
-   npm run dist:mac
-   ```
-
-   The build process will automatically sign and notarize the app. Notarization can take 5-15 minutes.
+For an existing signed ZIP, submit it with `xcrun notarytool submit PATH --keychain-profile reservation-helper`. Record the submission ID, wait for `Accepted`, and inspect its log. Then staple the matching `.app` with `xcrun stapler staple`, recreate the ZIP with `ditto -c -k --sequesterRsrc --keepParent`, extract it into a fresh directory, and repeat the three checks above before replacing the public download.
 
 ### Windows Signing
 
