@@ -1,6 +1,6 @@
 {
   "name": "reservation-helper",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "private": true,
   "description": "Desktop helper for Reserve America",
   "main": "main.js",
@@ -10,7 +10,8 @@
     "dist:mac": "electron-builder --mac dmg zip",
     "dist:win": "electron-builder --win nsis --x64",
     "dist:win-arm": "electron-builder --win nsis --arm64",
-    "publish": "electron-builder --publish always"
+    "publish": "electron-builder --publish always",
+    "test": "node --test test/*.test.js"
   },
   "build": {
     "appId": "com.campingthing.reservationhelper",
@@ -25,9 +26,10 @@
     "files": [
       "main.js",
       "preload.js",
+      "lib/**/*",
       "renderer/**/*",
       "package.json",
-      "config.js"
+      "config.public.json"
     ],
     "mac": {
       "category": "public.app-category.utilities",
@@ -75,7 +77,8 @@
     "directories": {
       "buildResources": "build",
       "output": "dist"
-    }
+    },
+    "beforePack": "build/prepare-config.cjs"
   },
   "devDependencies": {
     "electron": "^30.0.0",

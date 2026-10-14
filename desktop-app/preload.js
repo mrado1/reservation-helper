@@ -1,7 +1,6 @@
 const { contextBridge, ipcRenderer, shell } = require('electron');
 
 contextBridge.exposeInMainWorld('ra', {
-  getCookies: () => ipcRenderer.invoke('getCookies'),
   onCookieChanged: (cb) => {
     const handler = (_e, c) => cb(c);
     ipcRenderer.on('cookieChanged', handler);
@@ -19,7 +18,9 @@ contextBridge.exposeInMainWorld('ra', {
   },
   
   // Polling API
+  getPollingStatus: () => ipcRenderer.invoke('ra:getPollingStatus'),
   startPolling: (formData) => ipcRenderer.invoke('ra:startPolling', formData),
+  resetPolling: () => ipcRenderer.invoke('ra:resetPolling'),
   stopPolling: () => ipcRenderer.invoke('ra:stopPolling'),
   onPollingStatus: (cb) => {
     const handler = (_e, status) => cb(status);
@@ -28,8 +29,6 @@ contextBridge.exposeInMainWorld('ra', {
   },
   
   // M6: Probe and cart APIs
-  probeAddItem: (formData) => ipcRenderer.invoke('ra:probeAddItem', formData),
-  getCart: () => ipcRenderer.invoke('ra:getCart'),
   onNavigateToCart: (cb) => {
     const handler = () => cb();
     ipcRenderer.on('ra:navigateToCart', handler);
