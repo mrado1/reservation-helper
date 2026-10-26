@@ -179,6 +179,8 @@ function renderLogs(entries) {
     const li = document.createElement('li');
     li.className = 'border-b border-slate-200 py-2 text-xs';
     li.textContent = `${new Date(entry.ts).toLocaleTimeString()} · ${entry.state || entry.source}${entry.httpStatus ? ` · HTTP ${entry.httpStatus}` : ''}\n${entry.message || ''}`;
+    if (entry.requestCount != null) li.textContent += `\nRequests: ${entry.requestCount} · In flight: ${entry.inFlight || 0}`;
+    if (entry.firstRequestAtMs != null && entry.burstStartAtMs != null) li.textContent += ` · First dispatch: ${entry.firstRequestAtMs - entry.burstStartAtMs} ms after burst target`;
     $('logsList').append(li);
   }
 }

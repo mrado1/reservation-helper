@@ -139,7 +139,7 @@ const worker = new BookingWorker({
   client,
   onStatus(status) {
     sendToRenderer('ra:pollingStatus', status);
-    addLogEntry({ source: 'booking', state: status.state, httpStatus: status.lastHttpStatus, message: status.lastMessage });
+    addLogEntry({ source: 'booking', state: status.state, httpStatus: status.lastHttpStatus, requestCount: status.requestCount, inFlight: status.inFlight, firstRequestAtMs: status.firstRequestAtMs, burstStartAtMs: status.burstStartAtMs, message: status.lastMessage });
   },
   onSuccess() { sendToRenderer('ra:navigateToCart'); },
   keepAwake() {

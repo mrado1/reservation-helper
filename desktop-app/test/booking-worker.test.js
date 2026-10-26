@@ -20,11 +20,11 @@ test('available campsite adds once and hands off to checkout', async () => {
   const h = setup(); assert.equal((await h.worker.start(booking)).ok, true); await flush();
   assert.equal(h.posts.length, 1); assert.equal(h.successes(), 1); assert.equal(h.worker.status.state, 'success'); assert.equal(h.awake(), 0); assert.equal(h.posts[0][0].units, 2);
 });
-test('today schedule refreshes session but never POSTs before opening', async () => {
+test('today schedule refreshes session then starts its burst five seconds early', async () => {
   let checks = 0; const h = setup({ cart: async () => { checks++; return empty; } });
-  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 8 * 3600000 }); await h.clock.advance(8 * 3600000 - 1);
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 8 * 3600000 }); await h.clock.advance(8 * 3600000 - 5001);
   assert.equal(h.posts.length, 0); assert.equal(h.worker.status.state, 'scheduled'); assert.ok(checks > 90); assert.equal(h.awake(), 1);
-  await h.clock.advance(1); assert.equal(h.posts.length, 1); assert.equal(h.worker.status.state, 'success'); assert.equal(h.awake(), 0);
+  await h.clock.advance(1); assert.equal(h.posts.length, 100); assert.equal(h.worker.status.state, 'success'); assert.equal(h.awake(), 0);
 });
 test('cancelled schedule cannot fire at old opening time', async () => {
   const h = setup(); await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 60000 }); await flush(); h.worker.stop(); await h.clock.advance(120000);
@@ -69,9 +69,12 @@ test('ambiguous network failure checks cart before a repeated POST', async () =>
   let gets = 0, posts = 0; const h = setup({ cart: async () => ++gets === 1 ? empty : cart(), add: async () => { posts++; return { status: 0, reason: 'timeout' }; } });
   await h.worker.start(booking); await flush(); assert.equal(posts, 1); assert.equal(h.successes(), 1);
 });
-test('expected too-early fault near opening retries then succeeds', async () => {
-  let posts = 0; const h = setup({ add: async () => ++posts === 1 ? { status: 417, body: { faults: [{ msgKey: 'R6-V-100013.error', defaultMessage: 'cannot be reserved at this time' }] } } : cart() });
-  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 1000 }); await h.clock.advance(1000); assert.equal(posts, 1); await h.clock.advance(100); assert.equal(h.successes(), 1);
+test('too-early responses refill on the 10 ms tick without serial waits', async () => {
+  let posts = 0; const h = setup({ add: async () => ++posts <= 100 ? { status: 417, body: { faults: [{ msgKey: 'R6-V-100013.error' }] } } : cart() });
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 6000 });
+  await h.clock.advance(1000); assert.equal(posts, 100);
+  await h.clock.advance(9); assert.equal(posts, 100);
+  await h.clock.advance(1); assert.equal(posts, 200); assert.equal(h.successes(), 1);
 });
 test('hung POST is cancelled by independent deadline', async () => {
   let signal; const h = setup({ add: (_, o) => { signal = o.signal; return new Promise(() => {}); } }); await h.worker.start(booking); await h.clock.advance(300000); assert.equal(h.worker.status.state, 'stopped'); assert.ok(signal.aborted); assert.equal(h.awake(), 0);
@@ -110,4 +113,63 @@ test('today is evaluated in the selected opening timezone', async () => {
   // Still Oct 13 in California; this opening is later that same local day.
   const result = await h.worker.start({ ...booking, mode: 'queue', openingTimezone: 'America/Los_Angeles', unlockAtMs: Date.parse('2026-10-14T06:00:00Z') });
   assert.equal(result.ok, true); await flush(); assert.equal(h.worker.status.state, 'scheduled'); h.worker.stop();
+});
+
+const tooEarly = { status: 417, body: { faults: [{ msgKey: 'R6-V-100013.error' }] } };
+test('100 slow requests overlap and released slots refill without waiting for the others', async () => {
+  const pending = []; const h = setup({ add: (_, options) => new Promise(resolve => pending.push({ resolve, signal: options.signal, at: h.clock.time })) });
+  const opening = h.clock.time + 60000;
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: opening });
+  await h.clock.advance(54999); assert.equal(pending.length, 0);
+  await h.clock.advance(1); assert.equal(pending.length, 100);
+  assert.ok(pending.every(p => p.at === opening - 5000));
+  await h.clock.advance(600); assert.equal(pending.length, 100);
+  pending[0].resolve(tooEarly); await flush();
+  await h.clock.advance(10); assert.equal(pending.length, 101);
+  assert.equal(h.worker.run.inFlight, 100);
+  pending[100].resolve(cart()); await flush();
+  assert.equal(h.successes(), 1); assert.ok(pending.every(p => p.signal.aborted));
+  const count = pending.length; await h.clock.advance(10000); assert.equal(pending.length, count);
+});
+test('inventory error cannot cancel another in-flight successful reservation', async () => {
+  const pending = []; const h = setup({ add: () => new Promise(resolve => pending.push(resolve)) });
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 1000 }); await flush(); await h.clock.advance(0);
+  assert.equal(pending.length, 100);
+  pending[0]({ status: 409, body: { message: 'Unavailable' } }); await flush();
+  assert.equal(h.worker.status.state, 'polling');
+  pending[1](cart()); await flush(); assert.equal(h.successes(), 1);
+  for (const resolve of pending.slice(2)) resolve({ status: 401 });
+  await flush(); assert.equal(h.worker.status.state, 'success'); assert.equal(h.successes(), 1);
+});
+test('scheduled transient failures do not stop at five or serialize on cart checks', async () => {
+  let posts = 0, gets = 0;
+  const h = setup({ cart: async () => ++gets === 1 ? empty : new Promise(() => {}), add: async () => { posts++; return { status: 503 }; } });
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 1000 }); await h.clock.advance(100);
+  assert.ok(posts >= 1000); assert.equal(gets, 2); assert.equal(h.worker.status.state, 'polling'); h.worker.stop();
+});
+test('rate limit pauses refills across the entire burst and resumes after Retry-After', async () => {
+  const pending = []; const h = setup({ add: () => new Promise(resolve => pending.push(resolve)) });
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 1000 }); await h.clock.advance(0);
+  for (const resolve of pending) resolve({ status: 429, retryAfter: '3' }); await flush();
+  await h.clock.advance(2999); assert.equal(pending.length, 100);
+  await h.clock.advance(1); assert.equal(pending.length, 200); h.worker.stop();
+});
+test('burst cancellation aborts every request and does not leak into the next run', async () => {
+  const pending = []; const h = setup({ add: (_, options) => new Promise(resolve => pending.push({ resolve, signal: options.signal })) });
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 1000 }); await h.clock.advance(0);
+  h.worker.stop(); assert.ok(pending.every(p => p.signal.aborted));
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 60000 }); await flush();
+  for (const p of pending) p.resolve(cart()); await flush();
+  assert.equal(h.successes(), 0); assert.equal(h.worker.status.state, 'scheduled');
+  await h.clock.advance(54000); assert.equal(pending.length, 100); h.worker.stop();
+});
+test('failed burst drains replies and confirms empty cart before reporting inventory failure', async () => {
+  let gets = 0; const h = setup({ cart: async () => { gets++; return empty; }, add: async () => ({ status: 409, body: { message: 'Unavailable' } }) });
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 1000 }); await h.clock.advance(10);
+  assert.equal(h.worker.status.state, 'error'); assert.ok(gets >= 2); assert.equal(h.successes(), 0);
+});
+test('five-minute deadline aborts a hung concurrent burst', async () => {
+  const signals = []; const h = setup({ add: (_, options) => { signals.push(options.signal); return new Promise(() => {}); } });
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 1000 }); await h.clock.advance(300000);
+  assert.equal(signals.length, 100); assert.ok(signals.every(s => s.aborted)); assert.equal(h.worker.status.state, 'stopped');
 });
