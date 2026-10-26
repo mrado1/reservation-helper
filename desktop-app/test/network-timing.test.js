@@ -1,0 +1,20 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { observeBookingNetwork } = require('../lib/network-timing');
+test('network observer records only matching booking requests and safe response metadata', () => {
+  const handlers = {}, events = [];
+  const api = Object.fromEntries(['onBeforeRequest', 'onSendHeaders', 'onHeadersReceived', 'onCompleted', 'onErrorOccurred'].map(name => [name, (filter, callback) => { assert.match(filter.urls[0], /additem/); handlers[name] = callback; }]));
+  observeBookingNetwork(api, () => 7, () => 'run-1', event => events.push(event));
+  const callback = result => assert.deepEqual(result, {});
+  handlers.onBeforeRequest({ id: 1, method: 'POST', webContentsId: 8 }, callback);
+  handlers.onSendHeaders({ id: 1, timestamp: 100 }); assert.equal(events.length, 0);
+  handlers.onBeforeRequest({ id: 2, method: 'OPTIONS', webContentsId: 7 }, callback);
+  handlers.onSendHeaders({ id: 2, timestamp: 100 }); assert.equal(events.length, 0);
+  handlers.onBeforeRequest({ id: 3, method: 'POST', webContentsId: 7 }, callback);
+  handlers.onSendHeaders({ id: 3, timestamp: 100, requestHeaders: { Authorization: 'private-auth' } });
+  handlers.onHeadersReceived({ id: 3, responseHeaders: { 'X-Amzn-Waf-Action': ['captcha'], 'Retry-After': ['2'], 'Set-Cookie': ['private-cookie'] } }, callback);
+  handlers.onCompleted({ id: 3, timestamp: 250, statusCode: 405 });
+  assert.deepEqual(events, [{ type: 'sent', id: 3, runId: 'run-1', at: 100 }, { type: 'complete', id: 3, runId: 'run-1', at: 250, status: 405, wafAction: 'captcha', retryAfter: '2' }]);
+  assert.ok(!JSON.stringify(events).includes('private'));
+  handlers.onCompleted({ id: 3, timestamp: 300, statusCode: 405 }); assert.equal(events.length, 2);
+});

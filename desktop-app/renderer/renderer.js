@@ -181,6 +181,14 @@ function renderLogs(entries) {
     li.textContent = `${new Date(entry.ts).toLocaleTimeString()} · ${entry.state || entry.source}${entry.httpStatus ? ` · HTTP ${entry.httpStatus}` : ''}\n${entry.message || ''}`;
     if (entry.requestCount != null) li.textContent += `\nRequests: ${entry.requestCount} · In flight: ${entry.inFlight || 0}`;
     if (entry.firstRequestAtMs != null && entry.burstStartAtMs != null) li.textContent += ` · First dispatch: ${entry.firstRequestAtMs - entry.burstStartAtMs} ms after burst target`;
+    if (entry.preparation) li.textContent += `\nTransport: ${entry.preparation.transport} · Preparation: ${entry.preparation.totalMs} ms · Verification token: ${entry.preparation.tokenMs} ms`;
+    if (entry.network) {
+      const n = entry.network;
+      li.textContent += `\nNetwork: ${n.sent} sent · Peak in flight: ${n.peakInFlight} · Last response: ${n.lastResponseMs ?? '—'} ms`;
+      if (n.firstSentAtMs != null && entry.burstStartAtMs != null) li.textContent += ` · First network dispatch: ${Math.round(n.firstSentAtMs - entry.burstStartAtMs)} ms after burst target`;
+      if (n.wafAction) li.textContent += ` · AWS: ${n.wafAction}`;
+      if (n.retryAfter) li.textContent += ` · Retry-After: ${n.retryAfter}`;
+    }
     $('logsList').append(li);
   }
 }

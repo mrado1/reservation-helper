@@ -173,3 +173,30 @@ test('five-minute deadline aborts a hung concurrent burst', async () => {
   await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 1000 }); await h.clock.advance(300000);
   assert.equal(signals.length, 100); assert.ok(signals.every(s => s.aborted)); assert.equal(h.worker.status.state, 'stopped');
 });
+
+test('missing Retry-After cools only the rate-limited slot, not the whole burst', async () => {
+  const pending = []; const h = setup({ add: () => new Promise(resolve => pending.push(resolve)) }); h.worker.random = () => 0;
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 1000 }); await h.clock.advance(0);
+  pending[0]({ status: 429 }); pending[1](tooEarly); await flush();
+  await h.clock.advance(10); assert.equal(pending.length, 101); // free slot refills, limited slot waits
+  await h.clock.advance(989); assert.equal(pending.length, 101);
+  await h.clock.advance(1); assert.equal(pending.length, 102); h.worker.stop();
+});
+test('preparation is finished before early dispatch and no preparation runs during burst', async () => {
+  let prepared = 0, posts = 0;
+  const h = setup({ prepare: async () => { prepared++; return { ...empty, timing: { transport: 'direct', tokenMs: 25, totalMs: 200 } }; }, add: async (_, options) => { posts++; assert.equal(options.prepared, true); return cart(); } });
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 60000 });
+  await h.clock.advance(40000); assert.equal(prepared, 2); assert.equal(posts, 0);
+  await h.clock.advance(14999); assert.equal(posts, 0);
+  await h.clock.advance(1); assert.equal(posts, 100); assert.equal(prepared, 2);
+});
+test('network timings ignore earlier runs and snapshot values without leaking mutable state', async () => {
+  const h = setup({ add: () => new Promise(() => {}) });
+  await h.worker.start({ ...booking, mode: 'queue', unlockAtMs: h.clock.time + 1000 }); await h.clock.advance(0);
+  const run = h.worker.run, at = h.clock.time;
+  h.worker.observeNetwork({ type: 'sent', id: 1, runId: 'old-run', at }); assert.equal(run.network, undefined);
+  h.worker.observeNetwork({ type: 'sent', id: 2, runId: run.id, at: at + 20 });
+  await h.clock.advance(250); const snapshot = h.worker.status.network;
+  h.worker.observeNetwork({ type: 'complete', id: 2, runId: run.id, at: at + 620, status: 200 });
+  assert.equal(snapshot.completed, 0); assert.equal(run.network.lastResponseMs, 600); assert.equal(run.network.peakInFlight, 1); h.worker.stop();
+});

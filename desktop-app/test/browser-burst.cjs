@@ -24,7 +24,7 @@ app.whenReady().then(async () => {
     }
     if (url.pathname.endsWith('/shoppingcart/0')) return json(held ? booked : empty);
     if (url.hostname !== 'www.reserveamerica.com' || url.pathname !== '/test') return new Response('', { status: 404 });
-    return new Response('<meta name="csrf-token" content="test-only"><script>document.cookie="a1Data=%7B%7D"; document.cookie="ra2Refresh=test-only"; window.AwsWafIntegration={fetch:fetch.bind(window)};</script>', { headers: { 'Content-Type': 'text/html' } });
+    return new Response('<meta name="csrf-token" content="test-only"><script>document.cookie="a1Data=%7B%7D"; document.cookie="ra2Refresh=test-only"; window.AwsWafIntegration={fetch:fetch.bind(window),getToken:async()=>"test-waf"};</script>', { headers: { 'Content-Type': 'text/html' } });
   });
   window = new BrowserWindow({ show: false, webPreferences: { session: isolated, backgroundThrottling: false } });
   await window.loadURL('https://www.reserveamerica.com/test');

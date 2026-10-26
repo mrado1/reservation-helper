@@ -23,7 +23,7 @@ function serverMessage(result) {
 function classify(result) {
   if (result.reason === 'signed_out' || result.status === 401 || result.status === 403) return 'signed_out';
   if (result.reason === 'verification_required' || result.status === 405 || result.status === 202) return 'verification_required';
-  if (['unexpected_response', 'page_not_ready', 'cancelled'].includes(result.reason)) return 'terminal';
+  if (['unexpected_response', 'page_not_ready', 'cancelled', 'preparation_failed'].includes(result.reason)) return 'terminal';
   if (result.status === 429) return 'rate_limited';
   if (result.status === 0 || result.status >= 500) return 'transient';
   if (result.ok && result.status === 200) return 'verify';
@@ -37,6 +37,13 @@ function retryDelay(value, now) {
   if (value && Number.isFinite(seconds)) return Math.max(1000, seconds * 1000);
   const date = Date.parse(value);
   return Number.isFinite(date) ? Math.max(1000, date - now) : 2000;
+}
+function explicitRetryDelay(value, now) {
+  if (value == null || String(value).trim() === '') return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - now) : null;
 }
 function validateBooking(input, now = Date.now()) {
   if (!input || !/^\d+$/.test(String(input.facilityId)) || !/^\d+$/.test(String(input.siteId)) || !/^[A-Z]{2}$/.test(input.contractCode)) throw Error('Choose a campsite on Reserve America first.');
@@ -55,15 +62,15 @@ function validateBooking(input, now = Date.now()) {
 }
 
 class BookingWorker {
-  constructor({ client, onStatus, onSuccess, keepAwake = () => () => {}, now = Date.now, timers = globalThis, maxDurationMs = 300000, cadenceMs = 10, maxConcurrent = 100, earlyStartMs = 5000 }) {
-    Object.assign(this, { client, onStatus, onSuccess, keepAwake, now, timers, maxDurationMs, cadenceMs, maxConcurrent, earlyStartMs });
+  constructor({ client, onStatus, onSuccess, keepAwake = () => () => {}, now = Date.now, timers = globalThis, maxDurationMs = 300000, cadenceMs = 10, maxConcurrent = 100, earlyStartMs = 5000, random = Math.random }) {
+    Object.assign(this, { client, onStatus, onSuccess, keepAwake, now, timers, maxDurationMs, cadenceMs, maxConcurrent, earlyStartMs, random });
     this.run = null;
     this.status = { state: 'idle', requestCount: 0, elapsedMs: 0, maxDurationMs };
   }
   active(run) { return this.run === run && !run.controller.signal.aborted; }
   emit(run, state, message, extra = {}) {
     if (!this.active(run)) return;
-    this.status = { state, lastMessage: message, requestCount: run.requests, elapsedMs: run.startedAt == null ? 0 : this.now() - run.startedAt, maxDurationMs: this.maxDurationMs, unlockAtMs: run.booking.unlockAtMs, booking: run.booking, inFlight: run.inFlight || 0, firstRequestAtMs: run.firstRequestAtMs, burstStartAtMs: run.booking.mode === 'queue' ? run.booking.unlockAtMs - this.earlyStartMs : null, lastUpdated: this.now(), ...extra };
+    this.status = { state, lastMessage: message, requestCount: run.requests, elapsedMs: run.startedAt == null ? 0 : this.now() - run.startedAt, maxDurationMs: this.maxDurationMs, unlockAtMs: run.booking.unlockAtMs, booking: run.booking, inFlight: run.inFlight || 0, network: run.network ? { ...run.network } : undefined, preparation: run.preparation, firstRequestAtMs: run.firstRequestAtMs, burstStartAtMs: run.booking.mode === 'queue' ? run.booking.unlockAtMs - this.earlyStartMs : null, lastUpdated: this.now(), ...extra };
     this.onStatus(this.status);
   }
   finish(run, state, message, extra) {
@@ -83,6 +90,7 @@ class BookingWorker {
   }
   stop() { if (this.run) this.finish(this.run, 'stopped', 'Stopped. No more requests will be sent.'); }
   options(run, refresh = false) { return { signal: run.controller.signal, group: run.id, refresh }; }
+  addOptions(run) { return { ...this.options(run), prepared: run.booking.mode === 'queue' && this.now() < run.booking.unlockAtMs + 30000 }; }
   wait(run, ms) {
     return new Promise(resolve => {
       if (!this.active(run)) return resolve();
@@ -103,7 +111,8 @@ class BookingWorker {
     return { ok: true };
   }
   async checkCart(run, refresh = false) {
-    const result = await this.client.cart(this.options(run, refresh));
+    const result = await (refresh && this.client.prepare ? this.client.prepare(this.options(run, refresh)) : this.client.cart(this.options(run, refresh)));
+    if (refresh && result.timing) run.preparation = result.timing;
     if (!this.active(run)) return null;
     if (result.ok && Array.isArray(result.body?.contractViewList)) {
       if (findCartItem(result.body, run.booking)) { this.finish(run, 'success', 'Added to cart. Complete your details and checkout in Reserve America.', { lastHttpStatus: result.status }); return null; }
@@ -112,9 +121,30 @@ class BookingWorker {
     this.finish(run, 'error', serverMessage(result), { lastHttpStatus: result.status, reason: classify(result) });
     return null;
   }
+  observeNetwork(event) {
+    const run = this.run;
+    if (!run || !this.active(run) || run.startedAt == null || event.runId !== run.id) return;
+    run.networkRequests ||= new Map();
+    run.network ||= { sent: 0, completed: 0, inFlight: 0, peakInFlight: 0, totalResponseMs: 0 };
+    const n = run.network;
+    if (event.type === 'sent' && !run.networkRequests.has(event.id)) {
+      run.networkRequests.set(event.id, event.at);
+      n.firstSentAtMs ??= event.at;
+      n.lastSentAtMs = event.at;
+      n.sent++; n.inFlight++; n.peakInFlight = Math.max(n.peakInFlight, n.inFlight);
+    } else if (event.type === 'complete' && run.networkRequests.has(event.id)) {
+      const elapsed = Math.max(0, event.at - run.networkRequests.get(event.id));
+      run.networkRequests.delete(event.id);
+      n.inFlight--; n.completed++; n.totalResponseMs += elapsed;
+      n.lastResponseMs = elapsed; n.lastStatus = event.status;
+      if (event.wafAction) n.wafAction = event.wafAction;
+      if (event.retryAfter) n.retryAfter = event.retryAfter;
+    }
+  }
   async burst(run) {
     run.inFlight = 0;
     run.pauseUntil = 0;
+    run.cooldowns = [];
     run.pendingError = null;
     run.lastResult = {};
     run.lastReport = -Infinity;
@@ -139,7 +169,7 @@ class BookingWorker {
       run.firstRequestAtMs ??= this.now();
       const b = run.booking;
       try {
-        const result = await this.client.add({ contractCode: b.contractCode, facilityID: b.facilityId, siteID: b.siteId, arrivalDate: b.startDate, units: b.nights, quantity: 1, primaryItemID: null, primaryResNum: null }, this.options(run));
+        const result = await this.client.add({ contractCode: b.contractCode, facilityID: b.facilityId, siteID: b.siteId, arrivalDate: b.startDate, units: b.nights, quantity: 1, primaryItemID: null, primaryResNum: null }, this.addOptions(run));
         if (!this.active(run)) return;
         const kind = classify(result);
         const extra = { lastHttpStatus: result.status, reason: kind };
@@ -149,7 +179,9 @@ class BookingWorker {
         } else if (kind === 'too_early' && this.now() < b.unlockAtMs + 30000) {
           // Refill the slot on the next tick, independently of other responses.
         } else if (kind === 'rate_limited') {
-          run.pauseUntil = Math.max(run.pauseUntil, this.now() + retryDelay(result.retryAfter, this.now()));
+          const explicit = explicitRetryDelay(result.retryAfter, this.now());
+          if (explicit !== null) run.pauseUntil = Math.max(run.pauseUntil, this.now() + explicit);
+          else run.cooldowns.push(this.now() + 1000 + Math.floor(this.random() * 1000));
         } else if (kind === 'transient') {
           // No five-failure cutoff or exponential backoff at the release boundary.
           // A timed-out POST may have succeeded: reconcile without blocking the burst.
@@ -175,7 +207,8 @@ class BookingWorker {
         return;
       }
       if (!run.pendingError && this.now() >= run.pauseUntil) {
-        const slots = this.maxConcurrent - run.inFlight;
+        run.cooldowns = run.cooldowns.filter(until => until > this.now());
+        const slots = Math.max(0, this.maxConcurrent - run.inFlight - run.cooldowns.length);
         for (let i = 0; i < slots && this.active(run); i++) void send();
       }
       // Bound UI/log work instead of emitting once per concurrent response.
@@ -212,7 +245,7 @@ class BookingWorker {
     while (this.active(run)) {
       run.requests++;
       const b = run.booking;
-      const result = await this.client.add({ contractCode: b.contractCode, facilityID: b.facilityId, siteID: b.siteId, arrivalDate: b.startDate, units: b.nights, quantity: 1, primaryItemID: null, primaryResNum: null }, this.options(run));
+      const result = await this.client.add({ contractCode: b.contractCode, facilityID: b.facilityId, siteID: b.siteId, arrivalDate: b.startDate, units: b.nights, quantity: 1, primaryItemID: null, primaryResNum: null }, this.addOptions(run));
       if (!this.active(run)) return;
       const kind = classify(result);
       const extra = { lastHttpStatus: result.status, reason: kind };
@@ -240,4 +273,4 @@ class BookingWorker {
     }
   }
 }
-module.exports = { BookingWorker, findCartItem, classify, validateBooking, retryDelay };
+module.exports = { BookingWorker, findCartItem, classify, validateBooking, retryDelay, explicitRetryDelay };

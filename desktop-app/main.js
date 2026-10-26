@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, session, shell, dialog, powerSaveBlocker } 
 const path = require('path');
 const { createRaClient } = require('./lib/ra-client');
 const { BookingWorker } = require('./lib/booking-worker');
+const { observeBookingNetwork } = require('./lib/network-timing');
 const fs = require('fs');
 
 // M10: Auto-updater, analytics, and feature flags
@@ -139,7 +140,7 @@ const worker = new BookingWorker({
   client,
   onStatus(status) {
     sendToRenderer('ra:pollingStatus', status);
-    addLogEntry({ source: 'booking', state: status.state, httpStatus: status.lastHttpStatus, requestCount: status.requestCount, inFlight: status.inFlight, firstRequestAtMs: status.firstRequestAtMs, burstStartAtMs: status.burstStartAtMs, message: status.lastMessage });
+    addLogEntry({ source: 'booking', state: status.state, httpStatus: status.lastHttpStatus, requestCount: status.requestCount, inFlight: status.inFlight, firstRequestAtMs: status.firstRequestAtMs, burstStartAtMs: status.burstStartAtMs, network: status.network, preparation: status.preparation, message: status.lastMessage });
   },
   onSuccess() { sendToRenderer('ra:navigateToCart'); },
   keepAwake() {
@@ -312,6 +313,8 @@ function createWindow() {
     shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  observeBookingNetwork(session.defaultSession.webRequest, () => raWebContents?.id, () => worker.run?.startedAt != null ? worker.run.id : null, event => worker.observeNetwork(event));
 
   // Listen for webview attach and wire context extraction
   win.webContents.on('did-attach-webview', (_event, webviewWebContents) => {

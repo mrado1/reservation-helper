@@ -20,6 +20,11 @@ This launches Electron with hot-reloading for renderer changes.
 
 ## Production Builds
 
+### Verified Mac ZIP for sharing
+
+From `desktop-app`, run `npm run release:mac`. This uses the `reservation-helper` Keychain profile (or `APPLE_KEYCHAIN_PROFILE` override), builds the universal app, notarizes it, validates its signature and stapled ticket, and requires Gatekeeper acceptance. It then creates a ZIP, extracts it into a fresh directory, repeats those checks, and only copies the verified ZIP to `dist/Reservation-Helper-VERSION-universal-mac.zip`. A failed check fails the command. Each new build requires a new notarization; a previous version's ticket is not reused.
+
+
 ### Build for macOS (on macOS)
 
 ```bash
